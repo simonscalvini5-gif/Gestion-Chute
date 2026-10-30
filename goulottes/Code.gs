@@ -14,6 +14,8 @@ const ACHAT_MOT_DE_PASSE = '';
 // Alerte e-mail quand il ne reste plus que SEUIL_ALERTE bruts (ou moins) d'une section.
 const ALERTE_EMAIL = 'simon.scalvini@insidix.com';
 const SEUIL_ALERTE = 3;
+// Rappel de commande : e-mail envoyé ce nombre de semaines avant la semaine de fabrication.
+const RAPPEL_SEMAINES = 2;
 
 // Sections de goulotte ; brutes de 2000 mm (réglable dans Paramètres).
 const PROFILES = ['Goulotte 40x40', 'Goulotte 40x60', 'Goulotte 40x80', 'Goulotte 60x60', 'Goulotte 60x80'];
@@ -70,7 +72,7 @@ function api(action, payload, login) {
   if (action === 'state') {
     // Les livraisons dont la semaine est arrivée entrent automatiquement dans le stock.
     const l = LockService.getScriptLock();
-    if (l.tryLock(5000)) { try { processDeliveries(); } finally { l.releaseLock(); } }
+    if (l.tryLock(5000)) { try { processDeliveries(); sendReminders(); } finally { l.releaseLock(); } }
     return { state: readState() };
   }
 
@@ -87,6 +89,7 @@ function api(action, payload, login) {
     else if (action === 'applyPlan') result = applyPlan(payload);
     else if (action === 'pdf') result = makePdf(payload);
     else if (action === 'addBrut') result = addBruts(payload);
+    else if (action === 'removeBrut') result = removeBruts(payload);
     else if (action === 'achatLogin') result = achatCheck(payload) || { achats: readAchats(), planning: readPlanning() };
     else if (action === 'planSave') result = achatCheck(payload) || savePlanning(payload);
     else if (action === 'deliveryReceived') result = achatCheck(payload) || receiveDelivery(payload);
@@ -185,6 +188,16 @@ function sendAlert(alerts, motif) {
   } catch (e) {
     mouvementsSheet().appendRow([new Date(), '', 0, 'Alerte e-mail non envoyée : ' + e.message]);
   }
+}
+
+function removeBruts(p) {
+  const qty = Math.round(Number(p.qty));
+  if (PROFILES.indexOf(p.profile) < 0 || !(qty > 0)) return { error: 'Section ou quantité invalide.' };
+  const have = readBruts()[p.profile] || 0;
+  if (qty > have) return { error: 'Impossible de retirer ' + qty + ' brut(s) : il n\'y en a que ' + have + ' en stock.' };
+  const motif = String(p.motif || '').slice(0, 80);
+  changeBruts({ [p.profile]: -qty }, 'Retrait manuel' + (motif ? ' – ' + motif : ''));
+  return {};
 }
 
 function addBruts(p) {
@@ -533,7 +546,11 @@ function makePdf(p) {
 
 /* ---------- Planning annuel (prévisions de machines, livraisons de bruts) ---------- */
 
-const previsionsSheet = () => sheet(SHEET_PREVISIONS, ['Semaine', 'Machine', 'Quantité']);
+function previsionsSheet() {
+  const sh = sheet(SHEET_PREVISIONS, ['Semaine', 'Machine', 'Quantité', 'Bruts à acheter', 'Rappel envoyé le']);
+  if (sh.getRange(1, 4).getValue() !== 'Bruts à acheter') sh.getRange(1, 1, 1, 5).setValues([['Semaine', 'Machine', 'Quantité', 'Bruts à acheter', 'Rappel envoyé le']]);
+  return sh;
+}
 const livraisonsSheet = () => sheet(SHEET_LIVRAISONS, ['ID', 'Semaine', 'Section', 'Quantité', 'Statut', 'Reçue le']);
 
 // Semaine ISO « AAAA-Snn » (lundi au dimanche), format triable.
@@ -573,8 +590,8 @@ function readForecasts() {
   const sh = previsionsSheet();
   const last = sh.getLastRow();
   if (last < 2) return [];
-  return sh.getRange(2, 1, last - 1, 3).getValues()
-    .map(r => ({ week: String(r[0]), machine: String(r[1]), qty: Math.round(Number(r[2]) || 0) }))
+  return sh.getRange(2, 1, last - 1, 5).getValues()
+    .map((r, i) => ({ row: i + 2, week: String(r[0]), machine: String(r[1]), qty: Math.round(Number(r[2]) || 0), buy: String(r[3] || ''), sent: iso(r[4]) }))
     .filter(f => validWeek(f.week) && f.machine && f.qty > 0);
 }
 
@@ -588,7 +605,7 @@ function readDeliveries() {
 }
 
 function readPlanning() {
-  return { forecasts: readForecasts(), deliveries: readDeliveries().map(d => { delete d.row; return d; }), params: readPlanParams(), today: isoWeek(new Date()) };
+  return { forecasts: readForecasts().map(f => { delete f.row; return f; }), deliveries: readDeliveries().map(d => { delete d.row; return d; }), params: readPlanParams(), today: isoWeek(new Date()) };
 }
 
 // Livraisons prévues dont la semaine est atteinte : ajout au stock de bruts.
@@ -617,18 +634,24 @@ function receiveDelivery(p) {
 function savePlanning(p) {
   const now = isoWeek(new Date());
   const machines = readMachines();
-  const forecasts = (p.forecasts || []).map(f => ({ week: String(f.week), machine: String(f.machine), qty: Math.round(Number(f.qty)) }))
+  const forecasts = (p.forecasts || []).map(f => ({ week: String(f.week), machine: String(f.machine), qty: Math.round(Number(f.qty)), buy: String(f.buy || '').slice(0, 300) }))
     .filter(f => f.qty > 0);
   if (forecasts.some(f => !validWeek(f.week) || f.week < now || !machines[f.machine] || f.qty > 100)) return { error: 'Planning invalide.' };
+  const old = readForecasts();
+  forecasts.forEach(f => {
+    const o = old.find(x => x.week === f.week && x.machine === f.machine && x.qty === f.qty);
+    f.sent = o ? o.sent : '';
+  });
   const deliveries = (p.deliveries || []).map(d => ({ week: String(d.week), profile: String(d.profile), qty: Math.round(Number(d.qty)) }))
     .filter(d => d.qty > 0);
   if (deliveries.some(d => !validWeek(d.week) || d.week < now || PROFILES.indexOf(d.profile) < 0 || d.qty > 5000)) return { error: 'Livraisons invalides.' };
 
   const fs = previsionsSheet();
-  const rows = readForecasts().filter(f => f.week < now).concat(forecasts)
-    .sort((a, b) => a.week < b.week ? -1 : a.week > b.week ? 1 : 0).map(f => [f.week, f.machine, f.qty]);
+  const rows = old.filter(f => f.week < now).concat(forecasts)
+    .sort((a, b) => a.week < b.week ? -1 : a.week > b.week ? 1 : 0)
+    .map(f => [f.week, f.machine, f.qty, f.buy, f.sent ? new Date(f.sent) : '']);
   if (fs.getLastRow() > 1) fs.deleteRows(2, fs.getLastRow() - 1);
-  if (rows.length) fs.getRange(2, 1, rows.length, 3).setValues(rows);
+  if (rows.length) fs.getRange(2, 1, rows.length, 5).setValues(rows);
 
   const ls = livraisonsSheet();
   const kept = readDeliveries().filter(d => d.status !== 'Prévu' || d.week < now)
@@ -638,5 +661,63 @@ function savePlanning(p) {
   if (ls.getLastRow() > 1) ls.deleteRows(2, ls.getLastRow() - 1);
   if (all.length) ls.getRange(2, 1, all.length, 6).setValues(all);
   processDeliveries();
+  sendReminders();
+  installDailyTrigger();
   return { planning: readPlanning() };
+}
+
+/* ---------- Rappels de commande par e-mail ---------- */
+
+function weekMonday(wk) {
+  const y = Number(wk.slice(0, 4)), w = Number(wk.slice(6));
+  const jan4 = new Date(Date.UTC(y, 0, 4));
+  const m = new Date(jan4);
+  m.setUTCDate(jan4.getUTCDate() - ((jan4.getUTCDay() || 7) - 1) + (w - 1) * 7);
+  return m;
+}
+function addWeeks(wk, n) {
+  const m = weekMonday(wk);
+  m.setUTCDate(m.getUTCDate() + n * 7 + 3);
+  return isoWeek(new Date(m.getUTCFullYear(), m.getUTCMonth(), m.getUTCDate()));
+}
+const weekLabel = wk => 'S' + Number(wk.slice(6)) + ' ' + wk.slice(0, 4);
+
+// Pour chaque machine planifiée : à partir de RAPPEL_SEMAINES semaines avant la fabrication, un seul e-mail « à commander ».
+function sendReminders() {
+  if (!ALERTE_EMAIL) return;
+  const now = isoWeek(new Date());
+  const sh = previsionsSheet();
+  readForecasts().filter(f => !f.sent && f.week >= now && addWeeks(f.week, -RAPPEL_SEMAINES) <= now).forEach(f => {
+    if (!f.buy) { sh.getRange(f.row, 5).setValue('Rien à commander'); return; }
+    const monday = Utilities.formatDate(weekMonday(f.week), 'UTC', 'dd/MM/yyyy');
+    const subject = '[À commander] Bruts goulottes – ' + f.qty + ' × ' + f.machine + ' (fabrication ' + weekLabel(f.week) + ')';
+    const lines = f.buy.split(', ');
+    const html = '<div style="font-family:Arial,sans-serif;color:#1f2a44">'
+      + '<p style="font-size:18px;color:#1f3f84"><b>TDM by INSIDI<span style="color:#f2b705">X</span></b> – rappel de commande</p>'
+      + '<p>Fabrication prévue : <b>' + f.qty + ' × ' + esc(f.machine) + '</b> semaine <b>' + weekLabel(f.week) + '</b> (lundi ' + monday + ').</p>'
+      + '<p>Goulottes brutes à commander :</p><ul>' + lines.map(l => '<li><b>' + esc(l) + '</b></li>').join('') + '</ul>'
+      + '<p style="color:#7a8291">Calcul fait d\'après le stock au moment de la planification. Détail dans Espace méthode → Planning.</p></div>';
+    try {
+      MailApp.sendEmail({ to: ALERTE_EMAIL, subject: subject, body: 'À commander pour ' + f.qty + ' × ' + f.machine + ' (' + weekLabel(f.week) + ') : ' + f.buy, htmlBody: html });
+      sh.getRange(f.row, 5).setValue(new Date());
+    } catch (e) {
+      mouvementsSheet().appendRow([new Date(), '', 0, 'Rappel de commande non envoyé : ' + e.message]);
+    }
+  });
+}
+
+// Vérification quotidienne (livraisons prévues + rappels), même si personne n'ouvre le site.
+function rappelsQuotidiens() {
+  const l = LockService.getScriptLock();
+  if (!l.tryLock(30000)) return;
+  try { processDeliveries(); sendReminders(); } finally { l.releaseLock(); }
+}
+
+function installDailyTrigger() {
+  try {
+    if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'rappelsQuotidiens')) return;
+    ScriptApp.newTrigger('rappelsQuotidiens').timeBased().everyDays(1).atHour(7).create();
+  } catch (e) {
+    // Sans autorisation pour les déclencheurs, les rappels partent à la première ouverture du site de la semaine.
+  }
 }

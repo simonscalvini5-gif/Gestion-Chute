@@ -157,6 +157,7 @@
   .btn.ghost:hover { border-color: var(--navy); color: var(--navy); }
   .btn.small { font-size: .82rem; padding: 6px 12px; border-radius: 10px; }
   .btn.danger { background: var(--ko); color: #ffffff; }
+  .btn.ghost.danger, .btn.ghost.danger:hover { background: var(--ko); color: #ffffff; border-color: var(--ko); }
   .btn:disabled { opacity: .55; cursor: progress; }
   a.btn { text-decoration: none; display: inline-block; }
   .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
@@ -343,6 +344,9 @@
   .gauge { position: relative; height: 8px; border-radius: 999px; background: var(--bg-soft); overflow: hidden; }
   .gauge > span { position: absolute; inset: 0 auto 0 0; background: var(--st); border-radius: 999px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
   .gauge > em { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); opacity: .35; }
+  #brutForm { grid-template-columns: 1fr 1fr auto; }
+  .brutbtns { display: flex; gap: 8px; }
+  .brutmotif { grid-column: 1 / -1; }
   .stockalert { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; margin-bottom: 16px;
     background: var(--ko-bg); color: var(--ko); border: 1px solid #f2c4bf; }
   .stockalert.low { background: #fff3d6; color: #8a5300; border-color: #f0d9a0; }
@@ -547,7 +551,7 @@
       </div>
 
       <section data-at="plan" hidden>
-        <div class="sectiontitle"><h2>Planning des machines</h2><p class="muted">Bruts livrés automatiquement une semaine avant la fabrication</p></div>
+        <div class="sectiontitle"><h2>Planning des machines</h2><p class="muted">Mail « à commander » 2 semaines avant · bruts livrés automatiquement 1 semaine avant</p></div>
         <form class="card planadd" id="planForm">
           <div><label for="planWeek">Semaine de fabrication</label><input id="planWeek" type="week" required></div>
           <div><label for="planMachine">Machine</label><select id="planMachine"></select></div>
@@ -592,10 +596,17 @@
             <select id="brutProfile"></select>
           </div>
           <div>
-            <label for="brutQty">Nombre de bruts reçus</label>
+            <label for="brutQty">Nombre de bruts</label>
             <input id="brutQty" type="number" inputmode="numeric" min="1" step="1" value="1">
           </div>
-          <button class="btn" type="submit">Ajouter des bruts</button>
+          <div class="brutbtns">
+            <button class="btn" type="submit">Ajouter</button>
+            <button class="btn ghost" type="button" id="brutRemove">Retirer</button>
+          </div>
+          <div class="brutmotif" id="brutMotifBox" hidden>
+            <label for="brutMotif">Motif du retrait</label>
+            <select id="brutMotif"><option>Casse / défaut</option><option>Erreur de saisie</option><option>Inventaire</option><option>Autre</option></select>
+          </div>
         </form>
       </section>
         <section data-at="stock" hidden>
@@ -1866,7 +1877,7 @@ let planRows = [];
 
 function loadPlanning(p) {
   planning = p;
-  planRows = p.forecasts.map(f => ({ week: f.week, machine: f.machine, qty: f.qty }))
+  planRows = p.forecasts.map(f => ({ week: f.week, machine: f.machine, qty: f.qty, sent: f.sent }))
     .sort((a, b) => a.week < b.week ? -1 : a.week > b.week ? 1 : 0);
   renderPlanning();
 }
@@ -1904,6 +1915,16 @@ function planCompute() {
   });
 }
 
+// Rappel e-mail « à commander » envoyé RAPPEL semaines avant la fabrication (vérifié chaque jour par Google).
+const RAPPEL = 2;
+function mailCell(x) {
+  const sent = x.r.sent;
+  if (sent && !isNaN(Date.parse(sent))) return `<span class="pill ok">Envoyé ✓</span> <span class="muted">${new Date(sent).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>`;
+  if (!x.future || !Object.keys(x.buy).length) return '<span class="muted">—</span>';
+  const rw = addWeeks(x.r.week, -RAPPEL);
+  return rw <= thisWeek() ? '<span class="pill warn">Envoi en cours</span>' : `<b>${wLabel(rw)}</b> <span class="muted">· automatique</span>`;
+}
+
 function renderPlanning() {
   if (!planning) return;
   const sel = $('planMachine');
@@ -1916,17 +1937,18 @@ function renderPlanning() {
   rows.forEach(x => PROFILES.forEach(p => { if (x.buy[p]) total[p] = (total[p] || 0) + x.buy[p]; }));
   const now = thisWeek();
   $('planTable').innerHTML = rows.length ? `<div class="tablewrap"><table class="ptable">
-    <thead><tr><th>Fabrication</th><th>Machine</th><th class="r">Qté</th><th>Bruts nécessaires</th><th>À acheter</th><th>Livraison des bruts</th><th></th></tr></thead>
+    <thead><tr><th>Fabrication</th><th>Machine</th><th class="r">Qté</th><th>Bruts nécessaires</th><th>À acheter</th><th>Mail de commande</th><th>Livraison des bruts</th><th></th></tr></thead>
     <tbody>${rows.map((x, i) => `<tr class="${x.future ? '' : 'past'}">
       <td class="wk"><b>${wLabel(x.r.week)}</b><span>${fmtDay(weekMonday(x.r.week))}</span></td>
       <td><div class="mach"><img src="${machinePhoto(x.r.machine)}" alt="">${esc(x.r.machine)}</div></td>
       <td class="r num"><strong>${x.r.qty}</strong></td>
       <td>${chipList(x.need)}</td>
       <td>${x.future ? chipList(x.buy, 'buy') : '<span class="muted">—</span>'}</td>
+      <td>${mailCell(x)}</td>
       <td>${!x.future ? '<span class="muted">Fabriquée</span>' : Object.keys(x.buy).length ? (x.delivery <= now ? '<span class="pill ok">Reçue</span>' : `<b>${wLabel(x.delivery)}</b> <span class="muted">· auto</span>`) : '<span class="muted">Stock suffisant</span>'}</td>
       <td class="r">${x.future ? `<button type="button" class="btn small ghost" data-del-plan="${i}">Supprimer</button>` : ''}</td>
     </tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="4">Total à acheter</td><td colspan="3">${chipList(total, 'buy')}</td></tr></tfoot>
+    <tfoot><tr><td colspan="4">Total à acheter</td><td colspan="4">${chipList(total, 'buy')}</td></tr></tfoot>
   </table></div>` : '<div class="empty" style="padding:22px 24px">Aucune machine planifiée. Choisissez une semaine, une machine et une quantité, puis « Ajouter au planning ».</div>';
 }
 
@@ -1936,8 +1958,9 @@ async function savePlanRows() {
   const rows = planCompute().filter(x => x.future);
   const del = {};
   rows.forEach(x => PROFILES.forEach(p => { if (x.buy[p]) { const k = x.delivery + '|' + p; del[k] = (del[k] || 0) + x.buy[p]; } }));
+  const buyText = buy => PROFILES.filter(p => buy[p] > 0).map(p => `${short(p)} × ${buy[p]}`).join(', ');
   const payload = {
-    forecasts: rows.map(x => ({ week: x.r.week, machine: x.r.machine, qty: x.r.qty })),
+    forecasts: rows.map(x => ({ week: x.r.week, machine: x.r.machine, qty: x.r.qty, buy: buyText(x.buy) })),
     deliveries: Object.keys(del).map(k => ({ week: k.split('|')[0], profile: k.split('|')[1], qty: del[k] })).filter(d => d.week >= now)
   };
   const r = await achatServer('planSave', payload);
@@ -2110,6 +2133,33 @@ $('brutForm').addEventListener('submit', async e => {
     $('brutQty').value = 1;
   } catch (err) { toast(err.message); }
 });
+// Retrait manuel : premier clic = choix du motif, second clic = confirmation.
+$('brutRemove').addEventListener('click', async e => {
+  const b = e.currentTarget;
+  const p = $('brutProfile').value;
+  const qty = Math.round(Number($('brutQty').value));
+  if (!(qty > 0)) { toast('Saisissez un nombre de bruts.'); return; }
+  if (qty > (bruts[p] || 0)) { toast(`Impossible : il n'y a que ${bruts[p] || 0} brut(s) ${short(p)} en stock.`); return; }
+  if (!b.dataset.armed) {
+    b.dataset.armed = '1';
+    $('brutMotifBox').hidden = false;
+    b.classList.add('danger');
+    b.textContent = `Confirmer le retrait de ${qty}`;
+    return;
+  }
+  b.disabled = true;
+  try {
+    await server('removeBrut', { profile: p, qty, motif: $('brutMotif').value });
+    toast(`−${qty} brut(s) ${short(p)} retiré(s) du stock (${$('brutMotif').value}).`);
+    $('brutQty').value = 1;
+  } catch (err) { toast(err.message); }
+  resetRemove();
+});
+function resetRemove() {
+  const b = $('brutRemove');
+  delete b.dataset.armed; b.disabled = false; b.classList.remove('danger'); b.textContent = 'Retirer'; $('brutMotifBox').hidden = true;
+}
+['brutProfile', 'brutQty'].forEach(id => $(id).addEventListener('input', resetRemove));
 $('planOut').addEventListener('click', e => {
   const f3 = e.target.closest('button[data-f3]');
   if (f3 && plan3d) {

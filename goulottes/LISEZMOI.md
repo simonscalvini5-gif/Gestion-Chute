@@ -29,7 +29,8 @@ L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) reg
 **Commande immédiate**, **Planning**, **Stock** (chutes et bruts), **Historique** et **Paramètres**.
 
 ## Achat et goulottes brutes
-- **Espace méthode → Stock → Goulottes brutes** : nombre de bruts (2000 mm) par section ; « Ajouter des bruts » pour une entrée manuelle.
+- **Espace méthode → Stock → Goulottes brutes** : nombre de bruts (2000 mm) par section ; « Ajouter » pour une entrée manuelle,
+  « Retirer » (avec motif : casse, erreur de saisie, inventaire, autre) pour une sortie manuelle.
 - Chaque découpe dans une goulotte neuve (recherche ou plan validé) retire automatiquement un brut du stock.
   Si les bruts ne suffisent pas pour un plan, une alerte l'indique.
 - **Espace méthode → Commande immédiate** (identifiant `Morgan` + mot de passe Achat) : choisir les machines à fabriquer (− / +), « Calculer les bruts à acheter » :
@@ -44,6 +45,11 @@ L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) reg
   Choisir la semaine de fabrication, la machine et la quantité, « Ajouter au planning » (enregistré tout de suite).
   Chaque ligne affiche les bruts nécessaires, ce qu'il reste **à acheter** (le stock actuel couvre d'abord les commandes
   les plus proches) et la semaine de livraison des bruts (une semaine avant la fabrication). « Supprimer » retire une ligne.
+- **Mail « à commander »** : 2 semaines avant la semaine de fabrication, un e-mail part à `ALERTE_EMAIL`
+  (simon.scalvini@insidix.com) avec la liste des bruts à commander. Un seul e-mail par ligne ; la colonne « Mail de commande »
+  indique la semaine d'envoi puis « Envoyé ✓ ». Une vérification quotidienne (7 h) est installée automatiquement par Google
+  au premier enregistrement du planning, pour que le mail parte même si personne n'ouvre le site.
+  Délai réglable en haut de `Code.gs` (`RAPPEL_SEMAINES`).
 - **Stock automatique** : les bruts à acheter entrent seuls dans le stock de bruts à leur semaine de livraison
   (au premier affichage du site cette semaine-là).
 - Onglets du tableau : **Prévisions**, **Livraisons**, **Bruts** (stock), **Mouvements bruts** (chaque entrée/sortie), **Achats** (historique des achats).
