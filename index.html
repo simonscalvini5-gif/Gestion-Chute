@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestion des chutes Elcom</title>
+<style>
+  :root {
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #d1d5db;
+    --primary: #1d4ed8;
+    --primary-text: #ffffff;
+    --ok: #15803d;
+    --ok-bg: #dcfce7;
+    --ko: #b91c1c;
+    --ko-bg: #fee2e2;
+    --warn-bg: #fef3c7;
+    --warn: #92400e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: #111827;
+    color: #fff;
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1 { margin: 0; font-size: 1.3rem; }
+  header small { color: #9ca3af; }
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 1.15rem; }
+  .profiles { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .profiles button {
+    flex: 1 1 120px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    padding: 18px 10px;
+    border: 2px solid var(--border);
+    background: #fff;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .profiles button.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--primary-text);
+  }
+  .profiles button .count { display: block; font-size: .8rem; font-weight: 400; opacity: .8; }
+  label { font-weight: 600; display: block; margin-bottom: 6px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .row > * { flex: 1 1 180px; }
+  input[type=number], input[type=text], select {
+    width: 100%;
+    font-size: 1.4rem;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--primary); }
+  button.btn {
+    font-size: 1.1rem;
+    padding: 14px 18px;
+    border-radius: 8px;
+    border: none;
+    background: var(--primary);
+    color: var(--primary-text);
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button.btn.secondary { background: #e5e7eb; color: var(--text); }
+  button.btn.danger { background: var(--ko); }
+  button.btn.small { font-size: .85rem; padding: 6px 10px; }
+  button.btn:disabled { opacity: .5; cursor: not-allowed; }
+  .result {
+    margin-top: 16px;
+    padding: 18px;
+    border-radius: 10px;
+    display: none;
+  }
+  .result.ok { display: block; background: var(--ok-bg); border: 2px solid var(--ok); }
+  .result.ko { display: block; background: var(--ko-bg); border: 2px solid var(--ko); }
+  .result.warn { display: block; background: var(--warn-bg); border: 2px solid var(--warn); }
+  .result .verdict { font-size: 2rem; font-weight: 800; margin: 0 0 6px; }
+  .result.ok .verdict { color: var(--ok); }
+  .result.ko .verdict { color: var(--ko); }
+  .result.warn .verdict { color: var(--warn); }
+  .result p { margin: 4px 0; font-size: 1.1rem; }
+  .result .actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .bar {
+    margin: 12px 0 4px;
+    height: 28px;
+    display: flex;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .bar div { height: 100%; font-size: .75rem; display: flex; align-items: center; justify-content: center; color: #fff; white-space: nowrap; overflow: hidden; }
+  .bar .piece { background: #2563eb; }
+  .bar .kerf { background: #111827; }
+  .bar .rest { background: #16a34a; }
+  .bar .scrap { background: #9ca3af; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
+  th { font-size: .85rem; color: var(--muted); text-transform: uppercase; }
+  td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tabs button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-weight: 600; }
+  .tabs button.active { background: #111827; color: #fff; border-color: #111827; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+  .empty { color: var(--muted); font-style: italic; padding: 10px 0; }
+  .settings { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .settings input { width: 110px; font-size: 1rem; padding: 6px; }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #111827; color: #fff; padding: 12px 20px; border-radius: 8px;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  @media print {
+    header, .no-print { display: none !important; }
+    body { background: #fff; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Gestion des chutes – Profilés Elcom</h1>
+    <small>Barres de <span id="hdrBar">2000</span> mm · trait de scie <span id="hdrKerf">5</span> mm</small>
+  </div>
+  <div class="no-print">
+    <button class="btn small secondary" onclick="exportData()">Exporter</button>
+    <button class="btn small secondary" onclick="document.getElementById('importFile').click()">Importer</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
+  </div>
+</header>
+
+<main>
+  <!-- RECHERCHE -->
+  <section class="card">
+    <h2>1. Rechercher une chute</h2>
+    <div class="profiles" id="profileButtons"></div>
+    <div class="row">
+      <div>
+        <label for="cutLength">Longueur à découper (mm)</label>
+        <input type="number" id="cutLength" min="1" step="1" inputmode="numeric" placeholder="ex : 450">
+      </div>
+      <div style="flex:0 0 auto">
+        <button class="btn" id="searchBtn" onclick="search()" style="font-size:1.3rem;padding:14px 28px">Rechercher</button>
+      </div>
+    </div>
+    <div id="result" class="result"></div>
+  </section>
+
+  <div class="grid2">
+    <!-- STOCK -->
+    <section class="card">
+      <h2>Stock de chutes</h2>
+      <div class="tabs" id="stockTabs"></div>
+      <div id="stockList"></div>
+    </section>
+
+    <!-- AJOUT MANUEL + HISTORIQUE -->
+    <div style="display:grid;gap:16px;align-content:start">
+      <section class="card">
+        <h2>Ajouter une chute manuellement</h2>
+        <div class="row">
+          <div>
+            <label for="addProfile">Profilé</label>
+            <select id="addProfile"></select>
+          </div>
+          <div>
+            <label for="addLength">Longueur (mm)</label>
+            <input type="number" id="addLength" min="1" step="1" inputmode="numeric">
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <button class="btn" onclick="addManual()">Ajouter au stock</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Historique des découpes</h2>
+        <div id="history"></div>
+      </section>
+
+      <section class="card no-print">
+        <h2>Paramètres</h2>
+        <div class="settings">
+          <label style="margin:0">Longueur barre neuve (mm)</label>
+          <input type="number" id="setBar" min="1">
+          <label style="margin:0">Trait de scie (mm)</label>
+          <input type="number" id="setKerf" min="0">
+          <label style="margin:0">Chute mini conservée (mm)</label>
+          <input type="number" id="setMin" min="0">
+          <button class="btn small" onclick="saveSettings()">Enregistrer</button>
+        </div>
+        <p class="muted">Les chutes plus courtes que la « chute mini » sont considérées comme déchet et ne sont pas ajoutées au stock.</p>
+        <button class="btn small danger" onclick="resetAll()">Tout effacer</button>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PROFILES = ['40X40', '80X40', '80X80'];
+const STORAGE_KEY = 'gestion-chutes-elcom-v1';
+
+const defaultState = () => ({
+  settings: { barLength: 2000, kerf: 5, minKeep: 100 },
+  chutes: [],     // { id, profile, length, date }
+  history: [],    // { date, profile, cut, source, sourceLength, remainder, kept }
+  nextId: 1
+});
+
+let state = load();
+let currentProfile = PROFILES[0];
+let stockTab = PROFILES[0];
+let pending = null; // proposition en attente de validation
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return Object.assign(defaultState(), JSON.parse(raw));
+  } catch (e) { /* stockage indisponible */ }
+  return defaultState();
+}
+
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch (e) { toast('Erreur : impossible d\'enregistrer les données'); }
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function chutesOf(profile) {
+  return state.chutes.filter(c => c.profile === profile).sort((a, b) => a.length - b.length);
+}
+
+/* ---------- RENDU ---------- */
+
+function renderProfiles() {
+  const box = document.getElementById('profileButtons');
+  box.innerHTML = '';
+  PROFILES.forEach(p => {
+    const b = document.createElement('button');
+    b.className = p === currentProfile ? 'active' : '';
+    const n = chutesOf(p).length;
+    b.innerHTML = `${p}<span class="count">${n} chute${n > 1 ? 's' : ''} en stock</span>`;
+    b.onclick = () => { currentProfile = p; stockTab = p; clearResult(); renderAll(); document.getElementById('cutLength').focus(); };
+    box.appendChild(b);
+  });
+
+  const sel = document.getElementById('addProfile');
+  if (!sel.options.length) PROFILES.forEach(p => sel.add(new Option(p, p)));
+}
+
+function renderStock() {
+  const tabs = document.getElementById('stockTabs');
+  tabs.innerHTML = '';
+  PROFILES.forEach(p => {
+    const b = document.createElement('button');
+    b.textContent = `${p} (${chutesOf(p).length})`;
+    b.className = p === stockTab ? 'active' : '';
+    b.onclick = () => { stockTab = p; renderStock(); };
+    tabs.appendChild(b);
+  });
+
+  const list = chutesOf(stockTab);
+  const box = document.getElementById('stockList');
+  if (!list.length) { box.innerHTML = '<div class="empty">Aucune chute en stock pour ce profilé.</div>'; return; }
+  const total = list.reduce((s, c) => s + c.length, 0);
+  box.innerHTML = `
+    <table>
+      <thead><tr><th>N°</th><th>Longueur</th><th>Ajoutée le</th><th class="no-print"></th></tr></thead>
+      <tbody>
+        ${list.map(c => `
+          <tr>
+            <td>#${c.id}</td>
+            <td class="num">${c.length} mm</td>
+            <td class="muted">${fmtDate(c.date)}</td>
+            <td class="no-print" style="text-align:right"><button class="btn small secondary" onclick="removeChute(${c.id})">Retirer</button></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    <p class="muted">Total : ${list.length} chute(s), ${(total / 1000).toFixed(2)} m linéaires.</p>`;
+}
+
+function renderHistory() {
+  const box = document.getElementById('history');
+  const h = state.history.slice(-15).reverse();
+  if (!h.length) { box.innerHTML = '<div class="empty">Aucune découpe enregistrée.</div>'; return; }
+  box.innerHTML = `
+    <table>
+      <thead><tr><th>Date</th><th>Profilé</th><th>Coupe</th><th>Depuis</th><th>Reste</th></tr></thead>
+      <tbody>
+        ${h.map(e => `
+          <tr>
+            <td class="muted">${fmtDate(e.date)}</td>
+            <td>${e.profile}</td>
+            <td class="num">${e.cut} mm</td>
+            <td>${e.source === 'chute' ? 'Chute ' + e.sourceLength + ' mm' : 'Barre neuve'}</td>
+            <td>${e.remainder > 0 ? e.remainder + ' mm' + (e.kept ? '' : ' (déchet)') : '—'}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderSettings() {
+  const s = state.settings;
+  document.getElementById('setBar').value = s.barLength;
+  document.getElementById('setKerf').value = s.kerf;
+  document.getElementById('setMin').value = s.minKeep;
+  document.getElementById('hdrBar').textContent = s.barLength;
+  document.getElementById('hdrKerf').textContent = s.kerf;
+}
+
+function renderAll() {
+  renderProfiles();
+  renderStock();
+  renderHistory();
+  renderSettings();
+}
+
+/* ---------- LOGIQUE ---------- */
+
+// Reste après découpe d'une pièce dans une longueur donnée (le trait de scie est consommé
+// seulement s'il reste de la matière derrière la coupe).
+function remainderAfter(sourceLength, cut) {
+  if (sourceLength === cut) return 0;
+  return Math.max(0, sourceLength - cut - state.settings.kerf);
+}
+
+function barDiagram(sourceLength, cut) {
+  const kerf = sourceLength > cut ? Math.min(state.settings.kerf, sourceLength - cut) : 0;
+  const rest = remainderAfter(sourceLength, cut);
+  const kept = rest >= state.settings.minKeep;
+  const pct = v => (v / sourceLength * 100) + '%';
+  return `
+    <div class="bar">
+      <div class="piece" style="width:${pct(cut)}">${cut} mm</div>
+      ${kerf ? `<div class="kerf" style="width:${pct(kerf)};min-width:2px"></div>` : ''}
+      ${rest ? `<div class="${kept ? 'rest' : 'scrap'}" style="width:${pct(rest)}">${rest} mm</div>` : ''}
+    </div>`;
+}
+
+function clearResult() {
+  pending = null;
+  const r = document.getElementById('result');
+  r.className = 'result';
+  r.innerHTML = '';
+}
+
+function search() {
+  clearResult();
+  const r = document.getElementById('result');
+  const cut = Math.round(Number(document.getElementById('cutLength').value));
+  const { barLength, minKeep } = state.settings;
+
+  if (!cut || cut <= 0) {
+    r.className = 'result warn';
+    r.innerHTML = '<p class="verdict">Longueur invalide</p><p>Saisissez une longueur en millimètres.</p>';
+    return;
+  }
+  if (cut > barLength) {
+    r.className = 'result warn';
+    r.innerHTML = `<p class="verdict">Trop long</p><p>${cut} mm dépasse la longueur d'une barre neuve (${barLength} mm).</p>`;
+    return;
+  }
+
+  // Meilleure chute = la plus courte qui suffit (minimise la perte)
+  const candidates = chutesOf(currentProfile).filter(c => c.length >= cut);
+  const best = candidates[0];
+
+  if (best) {
+    const rest = remainderAfter(best.length, cut);
+    pending = { source: 'chute', chuteId: best.id, sourceLength: best.length, cut, profile: currentProfile };
+    r.className = 'result ok';
+    r.innerHTML = `
+      <p class="verdict">OUI ✔ – une chute convient</p>
+      <p>Prendre la chute <strong>#${best.id}</strong> de <strong>${best.length} mm</strong> (${currentProfile}).</p>
+      ${barDiagram(best.length, cut)}
+      <p>Reste après coupe : <strong>${rest} mm</strong>
+        ${rest === 0 ? '' : rest >= minKeep ? '→ sera remis en stock' : '→ déchet (inférieur à ' + minKeep + ' mm)'}</p>
+      ${candidates.length > 1 ? `<p class="muted">${candidates.length - 1} autre(s) chute(s) compatible(s) : ${candidates.slice(1).map(c => c.length + ' mm').join(', ')}</p>` : ''}
+      <div class="actions">
+        <button class="btn" onclick="confirmCut()">Valider la découpe</button>
+        <button class="btn secondary" onclick="useNewBar()">Utiliser une barre neuve</button>
+        <button class="btn secondary" onclick="clearResult()">Annuler</button>
+      </div>`;
+  } else {
+    showNewBar(cut, 'NON ✘ – aucune chute ne convient');
+  }
+}
+
+function showNewBar(cut, title) {
+  const r = document.getElementById('result');
+  const { barLength, minKeep } = state.settings;
+  const rest = remainderAfter(barLength, cut);
+  pending = { source: 'barre', sourceLength: barLength, cut, profile: currentProfile };
+  r.className = title.startsWith('NON') ? 'result ko' : 'result warn';
+  r.innerHTML = `
+    <p class="verdict">${title}</p>
+    <p>Utiliser une <strong>barre neuve de ${barLength} mm</strong> (${currentProfile}).</p>
+    ${barDiagram(barLength, cut)}
+    <p>Chute produite : <strong>${rest} mm</strong>
+      ${rest === 0 ? '' : rest >= minKeep ? '→ sera ajoutée au stock' : '→ déchet (inférieur à ' + minKeep + ' mm)'}</p>
+    <div class="actions">
+      <button class="btn" onclick="confirmCut()">Valider la découpe</button>
+      <button class="btn secondary" onclick="clearResult()">Annuler</button>
+    </div>`;
+}
+
+function useNewBar() {
+  if (!pending) return;
+  showNewBar(pending.cut, 'Barre neuve');
+}
+
+function confirmCut() {
+  if (!pending) return;
+  const p = pending;
+  const rest = remainderAfter(p.sourceLength, p.cut);
+  const kept = rest > 0 && rest >= state.settings.minKeep;
+
+  if (p.source === 'chute') {
+    state.chutes = state.chutes.filter(c => c.id !== p.chuteId);
+  }
+  let msg = `Découpe de ${p.cut} mm enregistrée.`;
+  if (kept) {
+    const id = state.nextId++;
+    state.chutes.push({ id, profile: p.profile, length: rest, date: new Date().toISOString() });
+    msg += ` Chute #${id} de ${rest} mm ajoutée au stock — marquez-la !`;
+  }
+  state.history.push({
+    date: new Date().toISOString(), profile: p.profile, cut: p.cut,
+    source: p.source, sourceLength: p.sourceLength, remainder: rest, kept
+  });
+  if (state.history.length > 500) state.history = state.history.slice(-500);
+  save();
+  clearResult();
+  document.getElementById('cutLength').value = '';
+  renderAll();
+  toast(msg);
+  document.getElementById('cutLength').focus();
+}
+
+function addManual() {
+  const profile = document.getElementById('addProfile').value;
+  const length = Math.round(Number(document.getElementById('addLength').value));
+  if (!length || length <= 0) { toast('Longueur invalide'); return; }
+  if (length > state.settings.barLength) { toast('Longueur supérieure à une barre neuve'); return; }
+  const id = state.nextId++;
+  state.chutes.push({ id, profile, length, date: new Date().toISOString() });
+  save();
+  document.getElementById('addLength').value = '';
+  stockTab = profile;
+  renderAll();
+  toast(`Chute #${id} (${profile}, ${length} mm) ajoutée`);
+}
+
+function removeChute(id) {
+  const c = state.chutes.find(x => x.id === id);
+  if (!c || !confirm(`Retirer la chute #${id} (${c.profile}, ${c.length} mm) du stock ?`)) return;
+  state.chutes = state.chutes.filter(x => x.id !== id);
+  save();
+  clearResult();
+  renderAll();
+}
+
+function saveSettings() {
+  const bar = Math.round(Number(document.getElementById('setBar').value));
+  const kerf = Number(document.getElementById('setKerf').value);
+  const min = Math.round(Number(document.getElementById('setMin').value));
+  if (!(bar > 0) || !(kerf >= 0) || !(min >= 0)) { toast('Paramètres invalides'); return; }
+  state.settings = { barLength: bar, kerf, minKeep: min };
+  save();
+  clearResult();
+  renderAll();
+  toast('Paramètres enregistrés');
+}
+
+function resetAll() {
+  if (!confirm('Effacer TOUT le stock de chutes et l\'historique ?')) return;
+  const settings = state.settings;
+  state = defaultState();
+  state.settings = settings;
+  save();
+  clearResult();
+  renderAll();
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `chutes-elcom-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!Array.isArray(data.chutes)) throw new Error();
+      if (!confirm('Remplacer les données actuelles par celles du fichier ?')) return;
+      state = Object.assign(defaultState(), data);
+      save();
+      clearResult();
+      renderAll();
+      toast('Données importées');
+    } catch (e) { toast('Fichier invalide'); }
+  };
+  reader.readAsText(file);
+  ev.target.value = '';
+}
+
+document.getElementById('cutLength').addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+document.getElementById('cutLength').addEventListener('input', clearResult);
+document.getElementById('addLength').addEventListener('keydown', e => { if (e.key === 'Enter') addManual(); });
+
+renderAll();
+document.getElementById('cutLength').focus();
+</script>
+</body>
+</html>
