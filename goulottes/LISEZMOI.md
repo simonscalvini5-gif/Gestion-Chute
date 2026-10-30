@@ -26,7 +26,7 @@ C'est un site **séparé** du site profilés : il a son propre tableau Google Sh
 ## Espace méthode (accès réservé)
 Le menu principal ne contient que **Recherche**, **Découpe** et **Espace méthode 🔒**.
 L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) regroupe :
-**Commande immédiate**, **Planning annuel**, **Stock** (chutes et bruts), **Historique** et **Paramètres**.
+**Commande immédiate**, **Planning**, **Stock** (chutes et bruts), **Historique** et **Paramètres**.
 
 ## Achat et goulottes brutes
 - **Espace méthode → Stock → Goulottes brutes** : nombre de bruts (2000 mm) par section ; « Ajouter des bruts » pour une entrée manuelle.
