@@ -84,6 +84,7 @@ function api(action, payload, login) {
     let result;
     if (action === 'cut') result = cut(payload);
     else if (action === 'add') result = addChute(payload);
+    else if (action === 'miscut') result = miscut(payload);
     else if (action === 'remove') result = removeChute(payload);
     else if (action === 'settings') result = saveSettings(payload);
     else if (action === 'applyPlan') result = applyPlan(payload);
@@ -305,7 +306,7 @@ function readHistory() {
   const n = Math.min(HISTORY_SHOWN, last - 1);
   return sh.getRange(last - n + 1, 1, n, 9).getValues().reverse().map(r => ({
     date: iso(r[0]), profile: String(r[1]), cut: String(r[2]),
-    source: r[3] === 'Chute' ? 'chute' : 'barre', sourceLength: Number(r[4]),
+    source: r[3] === 'Chute' ? 'chute' : r[3] === 'Erreur de coupe' ? 'erreur' : 'barre', sourceLength: Number(r[4]),
     sourceNum: r[5] === '' ? null : Number(r[5]), remainder: Number(r[6]),
     kept: r[7] === 'Oui', keptNum: r[8] === '' ? null : Number(r[8])
   }));
@@ -375,6 +376,25 @@ function cut(p) {
     sourceLength, sourceNum, remainder, kept ? 'Oui' : 'Non', keptNum]);
   if (p.source !== 'chute') changeBruts({ [p.profile]: -1 }, 'Découpe ' + len + ' mm');
   return { remainder: remainder, kept: kept, keptNum: kept ? keptNum : null };
+}
+
+// Pièce coupée par erreur : en dessous de la chute minimale = rebut, sinon elle entre dans le stock de chutes.
+function miscut(p) {
+  const s = readSettings();
+  const len = Math.round(Number(p.length));
+  if (PROFILES.indexOf(p.profile) < 0 || !(len > 0) || len > s.barLength) {
+    return { error: 'Longueur invalide (1 à ' + s.barLength + ' mm).' };
+  }
+  const kept = len >= s.minKeep;
+  const now = new Date();
+  let num = '';
+  if (kept) {
+    num = s.nextNum++;
+    stockSheet().appendRow([num, p.profile, len, now, Utilities.getUuid()]);
+    writeSettings(s);
+  }
+  historySheet().appendRow([now, p.profile, len, 'Erreur de coupe', '', '', len, kept ? 'Oui' : 'Non', num]);
+  return { kept: kept, num: kept ? num : null, minKeep: s.minKeep };
 }
 
 function addChute(p) {

@@ -297,6 +297,7 @@
   .needtable tfoot td { font-weight: 700; background: var(--bg-soft); }
   .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; }
   .pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.ko { background: var(--ko-bg); color: var(--ko); }
+  .pill.warn { background: #fff3d6; color: #8a5300; }
   .alert { margin: 16px 0 0; padding: 14px 16px; border-radius: 12px; background: var(--warn-bg); color: var(--warn); border: 1px solid #f0d9a0; }
   .alert b { color: var(--warn); }
 
@@ -351,6 +352,20 @@
     background: var(--ko-bg); color: var(--ko); border: 1px solid #f2c4bf; }
   .stockalert.low { background: #fff3d6; color: #8a5300; border-color: #f0d9a0; }
   .result .blocked { margin-top: 10px; padding: 10px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #f2c4bf; color: var(--ko); font-weight: 600; }
+
+  /* Erreur de coupe */
+  .miscut { padding: 0; overflow: hidden; }
+  .mchead { width: 100%; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; text-align: left;
+    padding: 16px 20px; border: 0; background: none; cursor: pointer; font: inherit; color: var(--text); }
+  .mchead b { display: block; font: 700 1.1rem var(--font-head); color: var(--ink); }
+  .mchead small { font-size: .88rem; color: var(--muted); }
+  .mcico { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: #fff3d6; color: #8a5300; font-weight: 800; }
+  .chev { color: var(--muted); transition: transform .25s; }
+  .mchead[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  #miscutForm { padding: 0 20px 20px; }
+  .mcrule { grid-column: 1 / -1; margin: 0; }
+  .mcpreview { font-weight: 700; }
+  .mcpreview.ko { color: var(--ko); } .mcpreview.ok { color: var(--ok); }
 
   /* Vue 3D */
   .v3d { position: relative; height: 500px; border-radius: 16px; overflow: hidden; margin: -4px 0 22px;
@@ -491,6 +506,19 @@
   <!-- RECHERCHE -->
   <div class="view" data-view="recherche">
     <div id="result" hidden></div>
+    <section class="card miscut" id="miscutCard">
+      <button type="button" class="mchead" id="miscutToggle" aria-expanded="false" aria-controls="miscutForm">
+        <span class="mcico" aria-hidden="true">!</span>
+        <span><b>Erreur de coupe ?</b><small>Déclarez la pièce ratée : rebut si elle est trop courte, sinon elle rejoint le stock de chutes.</small></span>
+        <span class="chev" aria-hidden="true">▾</span>
+      </button>
+      <form id="miscutForm" class="formrow" hidden>
+        <div><label for="mcProfile">Section</label><select id="mcProfile"></select></div>
+        <div><label for="mcLength">Longueur réellement coupée (mm)</label><input id="mcLength" type="number" inputmode="numeric" min="1" step="1"></div>
+        <button class="btn" type="submit">Enregistrer</button>
+        <p class="muted mcrule" id="mcRule"></p>
+      </form>
+    </section>
   </div>
 
   <!-- DÉCOUPE -->
@@ -1366,8 +1394,8 @@ function renderHistory() {
           <td class="muted">${fmtDate(h.date)}</td>
           <td>${esc(short(h.profile))}</td>
           <td class="num">${esc(h.cut)}</td>
-          <td>${h.source === 'chute' ? 'Chute <span class="tag">#' + h.sourceNum + '</span> ' + h.sourceLength + ' mm' : 'Goulotte neuve'}</td>
-          <td>${h.remainder > 0 ? (h.kept ? '<span class="tag">#' + h.keptNum + '</span> ' + h.remainder + ' mm' : h.remainder + ' mm · déchet') : '—'}</td>
+          <td>${h.source === 'chute' ? 'Chute <span class="tag">#' + h.sourceNum + '</span> ' + h.sourceLength + ' mm' : h.source === 'erreur' ? '<span class="pill warn">Erreur de coupe</span>' : 'Goulotte neuve'}</td>
+          <td>${h.remainder > 0 ? (h.kept ? '<span class="tag">#' + h.keptNum + '</span> ' + h.remainder + ' mm' : h.remainder + ' mm · ' + (h.source === 'erreur' ? 'rebut' : 'déchet')) : '—'}</td>
         </tr>`).join('')}
       </tbody>
     </table></div>`);
@@ -1976,6 +2004,32 @@ function showAchatTab(t) {
   if (t === 'plan') renderPlanning();
 }
 
+/* ---------- Erreur de coupe ---------- */
+
+function updateMiscutRule() {
+  const len = Math.round(Number($('mcLength').value));
+  const base = `Chute minimale gardée : ${settings.minKeep} mm (réglable dans Espace méthode → Paramètres).`;
+  if (!(len > 0)) { $('mcRule').textContent = base; return; }
+  $('mcRule').innerHTML = len < settings.minKeep
+    ? `<span class="mcpreview ko">${len} mm &lt; ${settings.minKeep} mm : la pièce part au rebut.</span>`
+    : `<span class="mcpreview ok">${len} mm ≥ ${settings.minKeep} mm : la pièce rejoint le stock de chutes avec un numéro.</span>`;
+}
+
+async function saveMiscut(btn) {
+  const p = $('mcProfile').value;
+  const len = Math.round(Number($('mcLength').value));
+  if (!(len > 0)) { toast('Saisissez la longueur réellement coupée.'); return; }
+  if (len > settings.barLength) { toast(`Longueur impossible : plus de ${settings.barLength} mm.`); return; }
+  btn.disabled = true;
+  try {
+    const r = await server('miscut', { profile: p, length: len });
+    $('mcLength').value = '';
+    updateMiscutRule();
+    toast(r.kept ? `Pièce de ${len} mm ajoutée au stock : écrivez « #${r.num} » dessus.` : `Pièce de ${len} mm mise au rebut (moins de ${r.minKeep} mm).`);
+  } catch (e) { toast(e.message); }
+  btn.disabled = false;
+}
+
 /* ---------- Stock et paramètres ---------- */
 
 async function addManual() {
@@ -2185,6 +2239,20 @@ $('planOut').addEventListener('click', e => {
   }
 });
 $('searchForm').addEventListener('submit', e => { e.preventDefault(); search(); });
+$('miscutToggle').addEventListener('click', () => {
+  const open = $('miscutForm').hidden;
+  $('miscutForm').hidden = !open;
+  $('miscutToggle').setAttribute('aria-expanded', String(open));
+  if (open) {
+    const sel = $('mcProfile');
+    if (!sel.options.length) PROFILES.forEach(p => sel.add(new Option(short(p), p)));
+    sel.value = profile;
+    updateMiscutRule();
+    $('mcLength').focus();
+  }
+});
+$('mcLength').addEventListener('input', updateMiscutRule);
+$('miscutForm').addEventListener('submit', e => { e.preventDefault(); saveMiscut(e.submitter || $('miscutForm').querySelector('button')); });
 function updateHint() {
   const cut = Math.round(Number($('cutLength').value));
   if (!(cut > 0)) { $('hint').innerHTML = ''; return; }

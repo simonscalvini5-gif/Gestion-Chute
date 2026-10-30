@@ -28,6 +28,11 @@ Le menu principal ne contient que **Recherche**, **Découpe** et **Espace métho
 L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) regroupe :
 **Commande immédiate**, **Planning**, **Stock** (chutes et bruts), **Historique** et **Paramètres**.
 
+## Erreur de coupe
+Sur l'écran **Recherche**, l'encadré « Erreur de coupe ? » permet de déclarer une pièce ratée (section + longueur réellement coupée) :
+plus courte que la chute minimale gardée (Paramètres, 100 mm par défaut) → **rebut** ; sinon elle entre dans le **stock de chutes**
+avec un numéro à écrire dessus. Les deux cas apparaissent dans l'Historique (« Erreur de coupe »). Refaire ensuite la pièce par une recherche normale.
+
 ## Achat et goulottes brutes
 - **Espace méthode → Stock → Goulottes brutes** : nombre de bruts (2000 mm) par section ; « Ajouter » pour une entrée manuelle,
   « Retirer » (avec motif : casse, erreur de saisie, inventaire, autre) pour une sortie manuelle.
