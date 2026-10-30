@@ -5,6 +5,12 @@ et le logiciel répond **OUI** (avec la chute à prendre) ou **NON** (barre neuv
 Le trait de scie (5 mm) est pris en compte, le reste est remis en stock avec un numéro à écrire sur la pièce.
 Le stock est **partagé** entre tous les postes et protégé par **mot de passe**.
 
+## Mettre le site en ligne gratuitement (recommandé)
+
+Voir **[google-apps-script/LISEZMOI.md](google-apps-script/LISEZMOI.md)** : hébergement gratuit par Google,
+stock enregistré dans Google Sheets, aucune installation. Les sections suivantes concernent la variante
+« serveur sur un PC de l'atelier ».
+
 ## Lancer le site
 
 Prérequis : [Node.js](https://nodejs.org) 18 ou plus récent. Aucune autre installation.
@@ -66,6 +72,7 @@ avec un disque persistant monté sur `/data`. Toujours en HTTPS.
 ## Fichiers
 
 - `server.js` – serveur (API + pages), sans dépendance
+- `google-apps-script/` – version hébergée gratuitement par Google (recommandée)
 - `public/` – interface (page, logos)
 - `demarrer-serveur.bat` – lancement Windows avec redémarrage automatique
 - `artifact/chutes-elcom.html` – ancienne version hébergée sur claude.ai
