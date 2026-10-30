@@ -36,6 +36,13 @@ Astuce : l'ajouter en favori, ou « Ajouter à l'écran d'accueil » sur une tab
   Le plan utilise d'abord les chutes du stock, puis le moins de barres neuves possible.
   « Générer le PDF » crée le plan dans Google Drive (dossier « Plans de découpe Elcom ») et l'ouvre.
   « Valider » une fois les coupes faites : le stock est mis à jour et les restes reçoivent leur numéro.
+- **Profilés / Goulottes** : bascule en haut de la recherche. Goulottes gérées : 40x40, 40x60, 40x80, 60x60, 60x80
+  (brutes de 2000 mm, comme les profilés).
+- **Découpe par machine** (onglet Plan de découpe) : choisir la machine (CP3XLV2, CP3V2, CP3V1…) et le nombre,
+  « Préparer la découpe » : toutes les pièces sont chargées et le plan est calculé (chutes d'abord, puis goulottes neuves).
+  Les listes se modifient dans l'onglet **Machines** du tableau (une ligne par pièce : Machine, Section, Longueur, Quantité ;
+  la section s'écrit exactement comme « Goulotte 40x60 » ou « 40X40 »). Pour ajouter une machine, ajouter des lignes avec son nom.
+- **Annuler le plan** : abandonne le plan affiché sans toucher au stock.
 - **Stock**, **Historique**, **Paramètres** : onglets en haut de la page.
 
 ## Bon à savoir

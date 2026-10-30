@@ -7,7 +7,9 @@
 const IDENTIFIANT = 'Production';
 const MOT_DE_PASSE = '';
 
-const PROFILES = ['40X40', '80X40', '80X80'];
+// Profilés Elcom et goulottes ; barres brutes de même longueur (réglable dans Paramètres).
+const PROFILES = ['40X40', '80X40', '80X80',
+  'Goulotte 40x40', 'Goulotte 40x60', 'Goulotte 40x80', 'Goulotte 60x60', 'Goulotte 60x80'];
 const DEFAULT_SETTINGS = { barLength: 2000, kerf: 5, minKeep: 100 };
 const HISTORY_SHOWN = 100;
 const PDF_FOLDER = 'Plans de découpe Elcom';
@@ -15,6 +17,29 @@ const PDF_FOLDER = 'Plans de découpe Elcom';
 const SHEET_STOCK = 'Stock';
 const SHEET_HISTORY = 'Historique';
 const SHEET_SETTINGS = 'Paramètres';
+const SHEET_MACHINES = 'Machines';
+
+// Liste de découpe de chaque machine : [section, longueur, quantité].
+// Recopiée une seule fois dans l'onglet « Machines », que l'on modifie ensuite directement dans le tableau.
+const MACHINES_INIT = {
+  'CP3XLV2': [
+    ['Goulotte 40x60', 850, 2], ['Goulotte 40x60', 760, 2], ['Goulotte 40x60', 500, 1], ['Goulotte 40x60', 610, 2],
+    ['Goulotte 40x60', 420, 1], ['Goulotte 40x80', 400, 4], ['Goulotte 40x60', 620, 1], ['Goulotte 40x80', 610, 1],
+    ['Goulotte 40x80', 1085, 1], ['Goulotte 40x80', 1855, 1], ['Goulotte 40x80', 275, 1], ['Goulotte 40x80', 1220, 4],
+    ['Goulotte 40x40', 1140, 2], ['Goulotte 40x60', 1710, 1], ['Goulotte 40x80', 1140, 1], ['Goulotte 40x80', 2000, 2],
+    ['Goulotte 40x80', 1050, 2]
+  ],
+  'CP3V2': [
+    ['Goulotte 40x80', 565, 1], ['Goulotte 40x60', 630, 1], ['Goulotte 40x60', 700, 1], ['Goulotte 40x40', 665, 1],
+    ['Goulotte 40x60', 665, 1], ['Goulotte 40x40', 800, 1], ['Goulotte 40x60', 610, 1], ['Goulotte 40x60', 1440, 2],
+    ['Goulotte 40x60', 590, 1], ['Goulotte 40x80', 630, 1], ['Goulotte 40x80', 1025, 1]
+  ],
+  'CP3V1': [
+    ['Goulotte 40x80', 1200, 1], ['Goulotte 60x80', 405, 1], ['Goulotte 60x80', 720, 1], ['Goulotte 60x60', 685, 1],
+    ['Goulotte 40x60', 830, 1], ['Goulotte 40x60', 570, 1], ['Goulotte 60x60', 570, 1], ['Goulotte 60x60', 620, 1],
+    ['Goulotte 40x80', 710, 1], ['Goulotte 40x80', 1165, 1], ['Goulotte 60x80', 2000, 1], ['Goulotte 60x80', 450, 1]
+  ]
+};
 
 /* ---------- Page ---------- */
 
@@ -71,6 +96,31 @@ const historySheet = () => sheet(SHEET_HISTORY,
   ['Date', 'Profilé', 'Coupe (mm)', 'Source', 'Longueur source (mm)', 'N° source', 'Reste (mm)', 'Gardée', 'N° gardé']);
 const settingsSheet = () => sheet(SHEET_SETTINGS, ['Paramètre', 'Valeur']);
 
+function machinesSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName(SHEET_MACHINES)) return ss.getSheetByName(SHEET_MACHINES);
+  const sh = sheet(SHEET_MACHINES, ['Machine', 'Section', 'Longueur (mm)', 'Quantité']);
+  Object.keys(MACHINES_INIT).forEach(m => MACHINES_INIT[m].forEach(r => sh.appendRow([m, r[0], r[1], r[2]])));
+  return sh;
+}
+
+// { machine: [{ profile, length, qty }] } ; les lignes mal remplies sont ignorées.
+function readMachines() {
+  const sh = machinesSheet();
+  const last = sh.getLastRow();
+  const out = {};
+  if (last < 2) return out;
+  sh.getRange(2, 1, last - 1, 4).getValues().forEach(r => {
+    const name = String(r[0]).trim();
+    const profile = String(r[1]).trim();
+    const length = Math.round(Number(r[2]));
+    const qty = Math.round(Number(r[3]));
+    if (!name || PROFILES.indexOf(profile) < 0 || !(length > 0) || !(qty > 0)) return;
+    (out[name] = out[name] || []).push({ profile: profile, length: length, qty: qty });
+  });
+  return out;
+}
+
 function readSettings() {
   const rows = settingsSheet().getDataRange().getValues().slice(1);
   const map = {};
@@ -122,7 +172,8 @@ function readState() {
     version: Date.now(),
     settings: { barLength: s.barLength, kerf: s.kerf, minKeep: s.minKeep },
     chutes: readChutes(),
-    history: readHistory()
+    history: readHistory(),
+    machines: readMachines()
   };
 }
 
@@ -282,13 +333,14 @@ function makePdf(p) {
   const profiles = PROFILES.filter(pr => bars.some(b => b.profile === pr));
   profiles.forEach(pr => {
     const list = bars.filter(b => b.profile === pr);
-    html += '<h2 style="font-size:13pt;color:#1f3f84;margin:16px 0 6px;border-bottom:1px solid #dde3ee">Profilé ' + pr
+    html += '<h2 style="font-size:13pt;color:#1f3f84;margin:16px 0 6px;border-bottom:1px solid #dde3ee">'
+      + (pr.indexOf('Goulotte') === 0 ? '' : 'Profilé ') + pr
       + ' – ' + list.length + ' barre(s)</h2>';
     list.forEach((b, i) => {
       const total = Number(b.length);
       const remainder = total - usedLength(b.pieces, total, s.kerf);
       const keep = remainder > 0 && remainder >= s.minKeep;
-      const source = b.source === 'chute' ? 'Chute n° ' + b.num + ' (' + total + ' mm)' : 'Barre neuve (' + total + ' mm)';
+      const source = b.source === 'chute' ? 'Chute n° ' + b.num + ' (' + total + ' mm)' : (pr.indexOf('Goulotte') === 0 ? 'Goulotte neuve (' : 'Barre neuve (') + total + ' mm)';
       let cells = '';
       b.pieces.forEach((len, k) => {
         cells += '<td style="width:' + (len / total * 100).toFixed(2) + '%;background:' + colors[k % colors.length]

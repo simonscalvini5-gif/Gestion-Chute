@@ -70,7 +70,12 @@
   h2 { margin: 0 0 14px; font-size: 1.1rem; font-weight: 600; text-wrap: balance; }
   label { display: block; font-weight: 500; margin-bottom: 6px; font-size: .9rem; }
 
-  .profiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .profiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .family { display: inline-flex; background: var(--soft); border: 1px solid var(--line); border-radius: 14px; padding: 4px; margin-bottom: 14px; }
+  .family button { font: 600 .95rem var(--font); border: 0; background: none; color: var(--muted); padding: 8px 18px; border-radius: 10px; cursor: pointer; }
+  .family button[aria-pressed="true"] { background: var(--surface); color: var(--navy); box-shadow: 0 1px 4px rgba(27,47,94,.15); }
+  .tabs .grp { width: 100%; font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; margin-top: 4px; }
+  .machine { display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; align-items: end; }
   .profiles button {
     font: 600 1.4rem var(--font); padding: 18px 6px; border-radius: 14px; cursor: pointer;
     border: 2px solid var(--line); background: var(--surface); color: var(--fg);
@@ -146,6 +151,8 @@
     .formrow { grid-template-columns: 1fr 1fr; }
     .formrow .btn { grid-column: 1 / -1; }
     .line { grid-template-columns: 1fr 1fr; }
+    .machine { grid-template-columns: 1fr 1fr; }
+    .machine .btn { grid-column: 1 / -1; }
     .profiles button { font-size: 1.15rem; }
     .logo { height: 32px; }
   }
@@ -190,6 +197,10 @@
   <!-- RECHERCHE (accueil) -->
   <div class="view" data-view="recherche">
     <section class="panel">
+      <div class="family" id="family" role="group" aria-label="Type de barre">
+        <button type="button" data-f="profil" aria-pressed="true">Profilés</button>
+        <button type="button" data-f="goulotte" aria-pressed="false">Goulottes</button>
+      </div>
       <div class="profiles" id="profiles"></div>
       <form id="searchForm" class="searchrow">
         <div class="field">
@@ -204,6 +215,21 @@
 
   <!-- PLAN DE DÉCOUPE -->
   <div class="view" data-view="plan" hidden>
+    <section class="panel">
+      <h2>Découpe par machine</h2>
+      <div class="machine">
+        <div>
+          <label for="machineSel">Machine</label>
+          <select id="machineSel"></select>
+        </div>
+        <div>
+          <label for="machineQty">Nombre de machines</label>
+          <input id="machineQty" type="number" inputmode="numeric" min="1" step="1" value="1">
+        </div>
+        <button type="button" class="btn" id="machineGo">Préparer la découpe</button>
+      </div>
+      <p class="muted" style="margin-bottom:0">Les listes de chaque machine se modifient dans l'onglet « Machines » du tableau Google Sheets.</p>
+    </section>
     <section class="panel">
       <h2>Pièces à couper</h2>
       <div class="lines" id="lines"></div>
@@ -293,13 +319,23 @@
 </div>
 
 <script>
-const PROFILES = ['40X40', '80X40', '80X80'];
+const FAMILIES = {
+  profil: ['40X40', '80X40', '80X80'],
+  goulotte: ['Goulotte 40x40', 'Goulotte 40x60', 'Goulotte 40x80', 'Goulotte 60x60', 'Goulotte 60x80']
+};
+const PROFILES = FAMILIES.profil.concat(FAMILIES.goulotte);
+const shortName = p => p.replace('Goulotte ', '');
+const newName = p => p.indexOf('Goulotte') === 0 ? 'Goulotte neuve' : 'Barre neuve';
+const sectionOptions = sel => `<optgroup label="Profilés">${FAMILIES.profil.map(p => `<option value="${p}"${p === sel ? ' selected' : ''}>${p}</option>`).join('')}</optgroup>`
+  + `<optgroup label="Goulottes">${FAMILIES.goulotte.map(p => `<option value="${p}"${p === sel ? ' selected' : ''}>${p}</option>`).join('')}</optgroup>`;
 const LOGIN_KEY = 'chutes-elcom-login';
 
 let chutes = [];
 let history = [];
 let settings = { barLength: 2000, kerf: 5, minKeep: 100 };
+let family = 'profil';
 let profile = PROFILES[0];
+let machines = {};
 let stockTab = PROFILES[0];
 let pending = null;
 let busy = false;
@@ -358,6 +394,7 @@ function applyState(s) {
   chutes = s.chutes;
   history = s.history;
   settings = s.settings;
+  machines = s.machines || {};
   if (!chutes.some(c => c.id === armedDelete)) armedDelete = null;
   renderAll();
 }
@@ -394,15 +431,27 @@ function showView(name) {
 /* ---------- Rendu ---------- */
 
 function renderProfiles() {
-  $('profiles').innerHTML = PROFILES.map(p =>
-    `<button type="button" data-p="${p}" aria-pressed="${p === profile}">${p}</button>`).join('');
+  document.querySelectorAll('#family button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.f === family)));
+  $('profiles').innerHTML = FAMILIES[family].map(p =>
+    `<button type="button" data-p="${p}" aria-pressed="${p === profile}">${shortName(p)}</button>`).join('');
   const sel = $('addProfile');
-  if (!sel.options.length) PROFILES.forEach(p => sel.add(new Option(p, p)));
+  if (!sel.options.length) sel.innerHTML = sectionOptions(PROFILES[0]);
+  renderMachines();
+}
+
+function renderMachines() {
+  const sel = $('machineSel');
+  const names = Object.keys(machines);
+  const current = sel.value;
+  const html = names.length ? names.map(n => `<option${n === current ? ' selected' : ''}>${esc(n)}</option>`).join('')
+    : '<option value="">Aucune machine</option>';
+  if (sel.innerHTML !== html) sel.innerHTML = html;
 }
 
 function renderStock() {
-  $('tabs').innerHTML = PROFILES.map(p =>
-    `<button type="button" data-tab="${p}" aria-pressed="${p === stockTab}">${p} · ${chutesOf(p).length}</button>`).join('');
+  const tab = p => `<button type="button" data-tab="${p}" aria-pressed="${p === stockTab}">${shortName(p)} · ${chutesOf(p).length}</button>`;
+  $('tabs').innerHTML = '<div class="grp">Profilés</div>' + FAMILIES.profil.map(tab).join('')
+    + '<div class="grp">Goulottes</div>' + FAMILIES.goulotte.map(tab).join('');
   const list = chutesOf(stockTab);
   if (!list.length) { $('stock').innerHTML = `<div class="empty">Aucune chute ${stockTab} en stock.</div>`; return; }
   const total = list.reduce((s, c) => s + c.length, 0);
@@ -431,7 +480,7 @@ function renderHistory() {
           <td class="muted">${fmtDate(h.date)}</td>
           <td>${esc(h.profile)}</td>
           <td class="num">${esc(h.cut)}</td>
-          <td>${h.source === 'chute' ? 'Chute #' + h.sourceNum + ' (' + h.sourceLength + ')' : 'Barre neuve'}</td>
+          <td>${h.source === 'chute' ? 'Chute #' + h.sourceNum + ' (' + h.sourceLength + ')' : newName(h.profile)}</td>
           <td>${h.remainder > 0 ? (h.kept ? '<span class="tag">#' + h.keptNum + '</span> ' + h.remainder : h.remainder + ' déchet') : '—'}</td>
         </tr>`).join('')}
       </tbody>
@@ -497,7 +546,7 @@ async function search() {
       ${restLine(remainderOf([cut], best.length), 'Reste')}
       <div class="actions">
         <button type="button" class="btn" data-act="confirm">Valider la découpe</button>
-        <button type="button" class="btn ghost" data-act="newbar">Barre neuve</button>
+        <button type="button" class="btn ghost" data-act="newbar">${newName(profile)}</button>
         <button type="button" class="btn ghost" data-act="cancel">Annuler</button>
       </div>`);
   } else {
@@ -508,8 +557,8 @@ async function search() {
 function showNewBar(cut, noChute) {
   pending = { source: 'barre', cut, profile };
   showResult(noChute ? 'ko' : 'warn', `
-    <p class="verdict">${noChute ? 'NON – barre neuve' : 'Barre neuve'}</p>
-    <p>Aucune chute ${profile} assez longue. Couper dans une barre neuve de <strong class="num">${settings.barLength} mm</strong>.</p>
+    <p class="verdict">${noChute ? 'NON – ' + newName(profile).toLowerCase() : newName(profile)}</p>
+    <p>${noChute ? `Aucune chute ${profile} assez longue. ` : ''}Couper dans une ${newName(profile).toLowerCase()} ${profile} de <strong class="num">${settings.barLength} mm</strong>.</p>
     ${barDiagram([cut], settings.barLength)}
     ${restLine(remainderOf([cut], settings.barLength), 'Reste')}
     <div class="actions">
@@ -545,7 +594,7 @@ function addLine(values) {
   div.className = 'line';
   const n = $('lines').children.length + 1;
   div.innerHTML = `
-    <div><label for="lp${n}">Section</label><select id="lp${n}" class="lp">${PROFILES.map(p => `<option${p === v.profile ? ' selected' : ''}>${p}</option>`).join('')}</select></div>
+    <div><label for="lp${n}">Section</label><select id="lp${n}" class="lp">${sectionOptions(v.profile)}</select></div>
     <div><label for="ll${n}">Longueur (mm)</label><input id="ll${n}" class="ll" type="number" inputmode="numeric" min="1" step="1" value="${esc(v.length)}"></div>
     <div><label for="lq${n}">Quantité</label><input id="lq${n}" class="lq" type="number" inputmode="numeric" min="1" step="1" value="${esc(v.qty)}"></div>
     <button type="button" class="btn ghost rm" aria-label="Supprimer la ligne">✕</button>`;
@@ -635,19 +684,19 @@ function renderPlan() {
     <div class="stats">
       <div class="stat"><b class="num">${pieces}</b><span>pièces à couper</span></div>
       <div class="stat"><b class="num">${s.used}</b><span>chutes du stock utilisées</span></div>
-      <div class="stat"><b class="num">${s.newBars}</b><span>barres neuves de ${settings.barLength} mm</span></div>
+      <div class="stat"><b class="num">${s.newBars}</b><span>barres / goulottes neuves (${settings.barLength} mm)</span></div>
       <div class="stat"><b class="num">${s.scrap}</b><span>mm de déchet</span></div>
     </div>`;
   PROFILES.forEach(pr => {
     const list = plan.bars.filter(b => b.profile === pr);
     if (!list.length) return;
-    html += `<h3>${pr}</h3>`;
+    html += `<h3>${pr.indexOf('Goulotte') === 0 ? pr : 'Profilé ' + pr}</h3>`;
     list.forEach((b, i) => {
       const rest = remainderOf(b.pieces, b.length);
       const keep = rest > 0 && rest >= settings.minKeep;
       html += `<div class="planbar">
         <div class="head">
-          <strong>${i + 1}. ${b.source === 'chute' ? 'Chute <span class="tag">#' + b.num + '</span> ' + b.length + ' mm' : 'Barre neuve ' + b.length + ' mm'}</strong>
+          <strong>${i + 1}. ${b.source === 'chute' ? 'Chute <span class="tag">#' + b.num + '</span> ' + b.length + ' mm' : newName(b.profile) + ' ' + b.length + ' mm'}</strong>
           <span class="muted">${rest <= 0 ? 'aucun reste' : keep ? 'reste ' + rest + ' mm → stock' + (b.keptNum ? ' <span class="tag">#' + b.keptNum + '</span>' : '') : 'reste ' + rest + ' mm → déchet'}</span>
         </div>
         ${barDiagram(b.pieces, b.length)}
@@ -658,6 +707,7 @@ function renderPlan() {
   html += `<div class="actions">
       <button type="button" class="btn" id="pdfBtn">Générer le PDF</button>
       ${plan.applied ? '<span class="muted" style="align-self:center">Stock mis à jour ✓</span>' : '<button type="button" class="btn ghost" id="applyBtn">Valider : mettre le stock à jour</button>'}
+      <button type="button" class="btn ghost" id="cancelPlan">${plan.applied ? 'Fermer' : 'Annuler le plan'}</button>
     </div>
     <div id="pdfLink"></div>
     <p class="muted">Faites « Valider » une fois les coupes faites : les chutes utilisées sortent du stock et les restes y entrent avec leur numéro (repris dans le PDF généré ensuite).</p>`;
@@ -679,7 +729,7 @@ function planPayload() {
   const s = summarise(plan.bars);
   return {
     ref: plan.ref,
-    summary: `${plan.bars.reduce((n, b) => n + b.pieces.length, 0)} pièces · ${s.used} chute(s) du stock · ${s.newBars} barre(s) neuve(s) · ${s.scrap} mm de déchet`,
+    summary: `${plan.bars.reduce((n, b) => n + b.pieces.length, 0)} pièces · ${s.used} chute(s) du stock · ${s.newBars} barre(s)/goulotte(s) neuve(s) · ${s.scrap} mm de déchet`,
     bars: plan.bars.map(b => ({ profile: b.profile, source: b.source, chuteId: b.chuteId, num: b.num, length: b.length, pieces: b.pieces, keptNum: b.keptNum }))
   };
 }
@@ -704,7 +754,9 @@ async function applyPlan(btn) {
     plan.applied = true;
     renderPlan();
     const n = r.keptNums.filter(Boolean);
-    toast(n.length ? `Stock mis à jour. Marquez les chutes : ${n.map(x => '#' + x).join(', ')}.` : 'Stock mis à jour.');
+    toast(!n.length ? 'Stock mis à jour.'
+      : n.length <= 8 ? `Stock mis à jour. Marquez les chutes : ${n.map(x => '#' + x).join(', ')}.`
+      : `Stock mis à jour. ${n.length} chutes à marquer : numéros sur le plan et dans le PDF.`);
   } catch (e) {
     toast(e.message);
     btn.disabled = false;
@@ -751,6 +803,24 @@ $('nav').addEventListener('click', e => {
   const b = e.target.closest('button[data-view]');
   if (b) showView(b.dataset.view);
 });
+$('family').addEventListener('click', e => {
+  const b = e.target.closest('button[data-f]');
+  if (!b || b.dataset.f === family) return;
+  family = b.dataset.f;
+  profile = FAMILIES[family][0];
+  clearResult(); renderProfiles();
+  $('cutLength').focus();
+});
+$('machineGo').addEventListener('click', () => {
+  const name = $('machineSel').value;
+  const count = Math.round(Number($('machineQty').value));
+  if (!name || !machines[name]) { toast('Choisissez une machine.'); return; }
+  if (!(count > 0) || count > 50) { toast('Nombre de machines : entre 1 et 50.'); return; }
+  $('lines').innerHTML = '';
+  machines[name].forEach(r => addLine({ profile: r.profile, length: r.length, qty: r.qty * count }));
+  $('planRef').value = count > 1 ? `${name} × ${count}` : name;
+  computePlan();
+});
 $('profiles').addEventListener('click', e => {
   const b = e.target.closest('button[data-p]');
   if (!b) return;
@@ -788,6 +858,12 @@ $('computePlan').addEventListener('click', computePlan);
 $('planOut').addEventListener('click', e => {
   if (e.target.id === 'pdfBtn') makePdf(e.target);
   if (e.target.id === 'applyBtn') applyPlan(e.target);
+  if (e.target.id === 'cancelPlan') {
+    plan = null;
+    renderPlan();
+    window.scrollTo(0, 0);
+    toast('Plan annulé : rien n\'a été modifié dans le stock.');
+  }
 });
 $('searchForm').addEventListener('submit', e => { e.preventDefault(); search(); });
 $('cutLength').addEventListener('input', clearResult);
