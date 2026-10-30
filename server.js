@@ -1,6 +1,7 @@
 // Serveur de gestion des chutes Elcom — aucune dépendance, Node.js 18+.
 // Variables d'environnement :
 //   PORT          port d'écoute (défaut 3000)
+//   APP_USER      identifiant d'accès (défaut Production)
 //   APP_PASSWORD  mot de passe d'accès (si absent, un mot de passe est généré et affiché au démarrage)
 //   DATA_DIR      dossier où est stocké data.json (défaut ./data)
 
@@ -16,6 +17,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const PROFILES = ['40X40', '80X40', '80X80'];
 const HISTORY_MAX = 2000;
 
+const USER = process.env.APP_USER || 'Production';
 let PASSWORD = process.env.APP_PASSWORD;
 if (!PASSWORD) {
   PASSWORD = crypto.randomBytes(6).toString('hex');
@@ -69,9 +71,14 @@ function authorized(req) {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Basic ')) return false;
   const decoded = Buffer.from(h.slice(6), 'base64').toString();
-  const pass = Buffer.from(decoded.slice(decoded.indexOf(':') + 1));
-  const expected = Buffer.from(PASSWORD);
-  return pass.length === expected.length && crypto.timingSafeEqual(pass, expected);
+  const sep = decoded.indexOf(':');
+  return sameText(decoded.slice(0, sep), USER) & sameText(decoded.slice(sep + 1), PASSWORD);
+}
+
+function sameText(a, b) {
+  const x = crypto.createHash('sha256').update(a).digest();
+  const y = crypto.createHash('sha256').update(b).digest();
+  return crypto.timingSafeEqual(x, y);
 }
 
 function readBody(req) {

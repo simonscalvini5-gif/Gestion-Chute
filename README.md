@@ -10,13 +10,15 @@ Le stock est **partagé** entre tous les postes et protégé par **mot de passe*
 Prérequis : [Node.js](https://nodejs.org) 18 ou plus récent. Aucune autre installation.
 
 ```bash
-APP_PASSWORD="votre-mot-de-passe" node server.js
+APP_PASSWORD="le-mot-de-passe" node server.js
 ```
 
-Puis ouvrir http://localhost:3000. Le navigateur demande un identifiant (n'importe lequel) et le mot de passe.
+Puis ouvrir http://localhost:3000. Le navigateur demande l'identifiant (`Production` par défaut) et le mot de passe.
+Le mot de passe n'est volontairement pas écrit dans le code : il est donné au lancement.
 
 | Variable       | Rôle                                             | Défaut              |
 |----------------|--------------------------------------------------|---------------------|
+| `APP_USER`     | identifiant d'accès                              | `Production`        |
 | `APP_PASSWORD` | mot de passe d'accès                             | généré au démarrage |
 | `PORT`         | port d'écoute                                    | `3000`              |
 | `DATA_DIR`     | dossier où est enregistré `data.json` (le stock) | `./data`            |
