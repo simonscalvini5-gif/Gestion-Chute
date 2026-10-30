@@ -4,6 +4,9 @@
 //   APP_USER      identifiant d'accès (défaut Production)
 //   APP_PASSWORD  mot de passe d'accès (si absent, un mot de passe est généré et affiché au démarrage)
 //   DATA_DIR      dossier où est stocké data.json (défaut ./data)
+//   BACKUP_DIR    dossier des sauvegardes quotidiennes (défaut DATA_DIR/sauvegardes) —
+//                 idéalement un autre disque, une clé USB ou un dossier réseau
+//   BACKUP_DAYS   nombre de jours de sauvegardes gardés (défaut 90)
 
 const http = require('http');
 const fs = require('fs');
@@ -13,6 +16,8 @@ const crypto = require('crypto');
 const PORT = Number(process.env.PORT) || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'data.json');
+const BACKUP_DIR = process.env.BACKUP_DIR || path.join(DATA_DIR, 'sauvegardes');
+const BACKUP_DAYS = Number(process.env.BACKUP_DAYS) || 90;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const PROFILES = ['40X40', '80X40', '80X80'];
 const HISTORY_MAX = 2000;
@@ -33,23 +38,69 @@ const defaultData = () => ({
   nextNum: 1
 });
 
-function load() {
-  try { return Object.assign(defaultData(), JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'))); }
-  catch (e) {
-    if (e.code !== 'ENOENT') console.error('Lecture de data.json impossible :', e.message);
-    return defaultData();
+// Lit un fichier de stock ; renvoie null s'il est absent ou illisible.
+function readStock(file) {
+  try {
+    const d = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return Array.isArray(d.chutes) ? Object.assign(defaultData(), d) : null;
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.error(`Fichier illisible : ${file} (${e.message})`);
+    return null;
   }
 }
 
+function backups() {
+  try {
+    return fs.readdirSync(BACKUP_DIR).filter(f => /^stock-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
+  } catch (e) { return []; }
+}
+
+// Au démarrage : data.json, sinon la sauvegarde la plus récente lisible.
+// On ne repart d'un stock vide que s'il n'existe vraiment aucun fichier.
+function load() {
+  const main = readStock(DATA_FILE);
+  if (main) return main;
+  for (const f of backups().reverse()) {
+    const d = readStock(path.join(BACKUP_DIR, f));
+    if (d) {
+      console.warn(`data.json absent ou abîmé : stock restauré depuis la sauvegarde ${f}`);
+      return d;
+    }
+  }
+  if (fs.existsSync(DATA_FILE)) {
+    console.error('data.json est abîmé et aucune sauvegarde n\'est lisible. Arrêt pour ne rien écraser.');
+    process.exit(1);
+  }
+  return defaultData();
+}
+
+// Écriture sûre : fichier temporaire vidé sur le disque, puis renommé.
+function writeFileSafe(file, content) {
+  const tmp = file + '.tmp';
+  const fd = fs.openSync(tmp, 'w');
+  try { fs.writeSync(fd, content); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  fs.renameSync(tmp, file);
+}
+
+fs.mkdirSync(DATA_DIR, { recursive: true });
+fs.mkdirSync(BACKUP_DIR, { recursive: true });
 let data = load();
 let version = 1;
 
+// Chaque modification est écrite immédiatement dans data.json,
+// et recopiée dans la sauvegarde du jour (une par jour, gardées BACKUP_DAYS jours).
 function save() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmp = DATA_FILE + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
-  fs.renameSync(tmp, DATA_FILE);
+  const json = JSON.stringify(data, null, 2);
+  writeFileSafe(DATA_FILE, json);
   version++;
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    writeFileSafe(path.join(BACKUP_DIR, `stock-${day}.json`), json);
+    const all = backups();
+    all.slice(0, Math.max(0, all.length - BACKUP_DAYS)).forEach(f => fs.unlinkSync(path.join(BACKUP_DIR, f)));
+  } catch (e) {
+    console.error('Sauvegarde du jour impossible :', e.message);
+  }
 }
 
 // Reste après la coupe : le trait de scie n'est retiré que s'il reste de la matière.
@@ -189,6 +240,8 @@ http.createServer(async (req, res) => {
     else serveStatic(req, res, url);
   } catch (e) {
     console.error(e);
-    send(res, 500, { error: 'Erreur serveur' });
+    // Si l'écriture a échoué, on revient à ce qui est réellement enregistré sur le disque.
+    if (req.method !== 'GET') data = readStock(DATA_FILE) || data;
+    send(res, 500, { error: 'Enregistrement impossible : la modification n\'a pas été prise en compte. Prévenez le responsable.' });
   }
 }).listen(PORT, () => console.log(`Chutes Elcom : http://localhost:${PORT}`));

@@ -22,28 +22,50 @@ Le mot de passe n'est volontairement pas écrit dans le code : il est donné au 
 | `APP_PASSWORD` | mot de passe d'accès                             | généré au démarrage |
 | `PORT`         | port d'écoute                                    | `3000`              |
 | `DATA_DIR`     | dossier où est enregistré `data.json` (le stock) | `./data`            |
+| `BACKUP_DIR`   | dossier des sauvegardes quotidiennes             | `data/sauvegardes`  |
+| `BACKUP_DAYS`  | nombre de jours de sauvegardes gardés            | `90`                |
 
-**Sauvegarde** : tout le stock est dans `data/data.json`. Copiez ce fichier régulièrement.
+## Enregistrement du stock
 
-## Mettre le site en ligne (privé)
+- Chaque découpe, ajout ou retrait est **écrit sur le disque immédiatement** dans `data/data.json`
+  (écriture sécurisée : une coupure de courant pendant l'enregistrement ne peut pas abîmer le fichier).
+- Une **sauvegarde par jour** est faite dans `data/sauvegardes/stock-AAAA-MM-JJ.json` ; les 90 derniers jours sont gardés.
+- Au démarrage, si `data.json` est absent ou abîmé, le serveur repart **automatiquement de la sauvegarde la plus récente**.
+  Si rien n'est lisible, il refuse de démarrer plutôt que d'écraser quoi que ce soit.
+- Pour se protéger d'une panne du disque du PC : définir `BACKUP_DIR` vers une clé USB, un autre disque ou un dossier réseau.
 
-### Option A – Un PC ou serveur de l'entreprise + Cloudflare Tunnel (gratuit, recommandé)
-1. Sur un PC toujours allumé : installer Node.js, copier ce dossier, lancer `node server.js` avec `APP_PASSWORD`.
-2. Installer `cloudflared` et créer un tunnel vers `http://localhost:3000`
-   (https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/).
-   Le site obtient une adresse HTTPS, sans ouvrir de port sur la box.
-3. Optionnel : Cloudflare Access pour n'autoriser que les adresses e-mail de l'entreprise.
+**Restaurer une sauvegarde à la main** : arrêter le serveur, copier le fichier `stock-AAAA-MM-JJ.json` voulu
+à la place de `data/data.json`, relancer.
 
-Si le site ne sert qu'à l'atelier, l'étape 2 est inutile : les postes du réseau local ouvrent `http://<ip-du-pc>:3000`.
+## Installation sur le PC de l'atelier (Windows)
 
-### Option B – Hébergeur avec Docker (Render, Railway, Fly.io, VPS…)
-Le `Dockerfile` est prêt. Définir `APP_PASSWORD` et **monter un disque persistant sur `/data`**,
-sinon le stock est perdu à chaque redémarrage.
+1. Installer Node.js (version LTS) depuis https://nodejs.org.
+2. Copier ce dossier sur le PC, par exemple dans `C:\Chutes`.
+3. Dans ce dossier, créer un fichier `motdepasse.txt` contenant uniquement le mot de passe.
+4. Double-cliquer sur `demarrer-serveur.bat` pour tester. Autoriser Node.js dans le pare-feu Windows (« réseaux privés »).
+5. Sur les postes de l'atelier, ouvrir `http://<nom-ou-ip-du-PC>:3000` (l'IP s'obtient avec la commande `ipconfig`).
+   Identifiant `Production` + le mot de passe.
 
-Toujours utiliser HTTPS sur Internet : le mot de passe circule dans chaque requête.
+**Démarrage automatique** (le site tourne dès que le PC est allumé, même sans session ouverte) :
+Planificateur de tâches → *Créer une tâche* →
+- Général : « Exécuter même si l'utilisateur n'est pas connecté »
+- Déclencheurs : « Au démarrage »
+- Actions : programme `C:\Chutes\demarrer-serveur.bat`, « Commencer dans » `C:\Chutes`
+- Paramètres : décocher « Arrêter la tâche si elle s'exécute plus de… »
+
+Le script relance aussi le serveur tout seul s'il s'arrête. Les messages sont dans `serveur.log`.
+
+Conseil : donner au PC une adresse IP fixe (réglage de la box ou du routeur) pour que l'adresse du site ne change pas.
+
+## Mettre le site sur Internet (optionnel)
+
+Seulement si des personnes hors de l'atelier doivent y accéder : Cloudflare Tunnel depuis ce PC
+(https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/), ou un hébergeur Docker
+avec un disque persistant monté sur `/data`. Toujours en HTTPS.
 
 ## Fichiers
 
 - `server.js` – serveur (API + pages), sans dépendance
 - `public/` – interface (page, logos)
+- `demarrer-serveur.bat` – lancement Windows avec redémarrage automatique
 - `artifact/chutes-elcom.html` – ancienne version hébergée sur claude.ai
