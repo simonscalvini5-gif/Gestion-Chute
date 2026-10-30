@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chutes Elcom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
+<style>
+  /* Layout : charte TDM by Insidix — bandeau blanc avec logo, bandeau bleu « réseau » pour le titre,
+     carte de recherche en grand, puis stock + historique sur deux colonnes. */
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --soft: #f3f6fb;
+    --fg: #1f2a44;
+    --muted: #595e5c;
+    --line: #dde3ee;
+    --navy: #1f3f84;
+    --navy-deep: #1b2f5e;
+    --navy-fg: #ffffff;
+    --yellow: #f2b705;
+    --accent: #1f3f84;
+    --accent-fg: #ffffff;
+    --head-bg: #ffffff;
+    --logo-light: block;
+    --logo-dark: none;
+    --ok: #1e7b3a; --ok-bg: #e7f5ec;
+    --ko: #b42318; --ko-bg: #fdeeed;
+    --warn: #8a5300; --warn-bg: #fff6dd;
+    --piece: #1f3f84; --kerf: #1f2a44; --rest: #2e9b52; --scrap: #a7b0bd;
+    --font-body: "Poppins", "Segoe UI", system-ui, sans-serif;
+    --font-num: "Poppins", "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1830; --surface: #16213d; --soft: #1b2849; --fg: #e8edf7; --muted: #a9b4c8; --line: #2c3a5e;
+      --navy: #2a4f9e; --navy-deep: #12204a; --accent: #5d8be0; --accent-fg: #0b1430;
+      --head-bg: #0f1830; --logo-light: none; --logo-dark: block;
+      --ok: #62d48a; --ok-bg: #12301f; --ko: #ff8b80; --ko-bg: #3a1716; --warn: #f2c25c; --warn-bg: #352812;
+      --piece: #5d8be0; --kerf: #e8edf7; --rest: #46b86b; --scrap: #56627b;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1830; --surface: #16213d; --soft: #1b2849; --fg: #e8edf7; --muted: #a9b4c8; --line: #2c3a5e;
+    --navy: #2a4f9e; --navy-deep: #12204a; --accent: #5d8be0; --accent-fg: #0b1430;
+    --head-bg: #0f1830; --logo-light: none; --logo-dark: block;
+    --ok: #62d48a; --ok-bg: #12301f; --ko: #ff8b80; --ko-bg: #3a1716; --warn: #f2c25c; --warn-bg: #352812;
+    --piece: #5d8be0; --kerf: #e8edf7; --rest: #46b86b; --scrap: #56627b;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  [hidden] { display: none !important; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+  .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+  .wrap {
+    max-width: 1140px; margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  header.top { background: var(--head-bg); border-bottom: 1px solid var(--line); }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-block: 18px; }
+  .logo { height: 46px; width: auto; }
+  .logo.light { display: var(--logo-light); }
+  .logo.dark { display: var(--logo-dark); }
+  .topnav { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; color: var(--muted); font-size: .95rem; }
+  .topnav a { color: inherit; text-decoration: none; }
+  .topnav a:hover { color: var(--navy); }
+  .status { font-size: .85rem; font-weight: 500; padding: 9px 20px; border-radius: 14px; background: var(--navy); color: var(--navy-fg); white-space: nowrap; }
+  .hero {
+    position: relative; overflow: hidden; color: #ffffff;
+    background: radial-gradient(120% 140% at 30% 20%, #2f6a9c 0%, #22497f 40%, #1b2f5e 100%);
+  }
+  .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; }
+  .hero .wrap { position: relative; padding-block: 36px 84px; }
+  .hero h1 { margin: 0; font-size: clamp(1.7rem, 4vw, 2.6rem); font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+  .hero p { margin: 8px 0 0; font-size: 1.05rem; opacity: .92; }
+  .hero .spec strong { color: var(--yellow); font-weight: 600; }
+  main.wrap { display: grid; gap: 22px; padding-block: 0 48px; margin-top: -56px; position: relative; }
+  section.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; min-width: 0; }
+  section.panel.lead { box-shadow: 0 14px 40px rgba(27, 47, 94, .18); }
+  h2 { margin: 0 0 16px; font-size: 1.15rem; font-weight: 600; color: var(--fg); text-wrap: balance; }
+  .eyebrow { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); font-weight: 600; margin-bottom: 2px; }
+  .profiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+  .profiles button {
+    font: 600 1.35rem var(--font-num); padding: 16px 8px; border-radius: 14px; cursor: pointer;
+    border: 2px solid var(--line); background: var(--surface); color: var(--fg);
+  }
+  .profiles button small { display: block; font: 400 .78rem var(--font-body); color: var(--muted); margin-top: 2px; }
+  .profiles button[aria-pressed="true"] { border-color: var(--navy); background: var(--navy); color: var(--navy-fg); }
+  .profiles button[aria-pressed="true"] small { color: var(--navy-fg); opacity: .85; }
+  label { display: block; font-weight: 500; margin-bottom: 6px; }
+  .searchrow { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; }
+  .searchrow .field { flex: 1 1 220px; position: relative; }
+  .searchrow .field span { position: absolute; right: 40px; bottom: 16px; color: var(--muted); }
+  input, select {
+    width: 100%; font: 600 1.5rem var(--font-num); padding: 12px 14px; color: var(--fg);
+    background: var(--surface); border: 2px solid var(--line); border-radius: 12px;
+  }
+  select { font-size: 1.05rem; }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+  .btn {
+    font: 500 1rem var(--font-body); padding: 12px 22px; border-radius: 14px; cursor: pointer;
+    border: 2px solid transparent; background: var(--navy); color: var(--navy-fg);
+  }
+  .btn:hover { background: var(--navy-deep); }
+  .btn.big { font-size: 1.15rem; padding: 12px 32px; }
+  .btn.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+  .btn.ghost:hover { border-color: var(--navy); }
+  .btn.small { font-size: .82rem; padding: 6px 12px; border-radius: 10px; }
+  .btn.danger { background: var(--ko); color: #ffffff; }
+  .btn:disabled { opacity: .5; cursor: progress; }
+  .result { margin-top: 18px; padding: 20px; border-radius: 14px; border: 2px solid; }
+  .result.ok { background: var(--ok-bg); border-color: var(--ok); }
+  .result.ko { background: var(--ko-bg); border-color: var(--ko); }
+  .result.warn { background: var(--warn-bg); border-color: var(--warn); }
+  .verdict { font-size: 1.8rem; font-weight: 700; margin: 0 0 6px; line-height: 1.2; }
+  .ok .verdict { color: var(--ok); } .ko .verdict { color: var(--ko); } .warn .verdict { color: var(--warn); }
+  .result p { margin: 4px 0; font-size: 1.02rem; }
+  .result .verdict { font-size: 1.8rem; margin: 0 0 6px; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .bar { display: flex; height: 30px; margin: 12px 0 6px; border: 1px solid var(--fg); border-radius: 4px; overflow: hidden; background: var(--surface); }
+  .bar div { display: flex; align-items: center; justify-content: center; font: 600 .75rem var(--font-num); color: #fff; white-space: nowrap; overflow: hidden; }
+  .bar .piece { background: var(--piece); } .bar .kerf { background: var(--kerf); min-width: 2px; }
+  .bar .rest { background: var(--rest); } .bar .scrap { background: var(--scrap); }
+  .cols { display: grid; grid-template-columns: 1.1fr 1fr; gap: 22px; align-items: start; }
+  .stack { display: grid; gap: 22px; min-width: 0; }
+  @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } .topnav { display: none; } }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tabs button { font: 500 .88rem var(--font-num); padding: 7px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+  .tabs button[aria-pressed="true"] { background: var(--navy); color: var(--navy-fg); border-color: var(--navy); }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
+  td.r, th.r { text-align: right; }
+  .muted { color: var(--muted); font-size: .88rem; }
+  .empty { color: var(--muted); padding: 12px 0; }
+  .tag { display: inline-block; font: 600 .85rem var(--font-num); background: var(--soft); border: 1px solid var(--line); border-left: 3px solid var(--yellow); border-radius: 4px; padding: 1px 7px; }
+  .formrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .settings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+  .settings input { font-size: 1rem; padding: 8px 10px; }
+  .settings label { font-size: .82rem; }
+  @media (max-width: 480px) { .settings { grid-template-columns: 1fr; } .profiles button { font-size: 1.05rem; } .logo { height: 36px; } }
+  .toast {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100% - 32px); background: var(--navy-deep); color: #ffffff;
+    padding: 12px 20px; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 20;
+  }
+  .notice { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); border-radius: 12px; padding: 10px 14px; }
+  footer { border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
+  footer .wrap { padding-block: 18px; }
+  @media (prefers-reduced-motion: no-preference) { .result { animation: pop .18s ease-out; } }
+  @keyframes pop { from { transform: scale(.98); } to { transform: none; } }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div>
+      <img class="logo light" alt="TDM by Insidix" src="/logo.png">
+      <img class="logo dark" alt="TDM by Insidix" src="/logo-white.png">
+    </div>
+    <nav class="topnav" aria-label="Sections">
+      <a href="#recherche">Recherche</a>
+      <a href="#stock-chutes">Stock</a>
+      <a href="#historique">Historique</a>
+      <a href="#parametres">Paramètres</a>
+    </nav>
+    <span class="status" id="status">Connexion au stock…</span>
+  </div>
+</header>
+
+<section class="hero">
+  <canvas id="net" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <h1>Gestion des chutes</h1>
+    <p>Profilés aluminium Elcom 40X40 · 80X40 · 80X80</p>
+    <p class="spec">Barre neuve <strong class="num" id="hBar">2000</strong> mm · trait de scie <strong class="num" id="hKerf">5</strong> mm</p>
+  </div>
+</section>
+
+<main class="wrap">
+  <div class="notice" id="offline" hidden>Le serveur ne répond pas. Vérifiez la connexion réseau ; la page se reconnecte toute seule.</div>
+
+  <section class="panel lead" id="recherche">
+    <div class="eyebrow">Avant de couper</div>
+    <h2>Y a-t-il une chute pour cette pièce ?</h2>
+    <div class="profiles" id="profiles"></div>
+    <form id="searchForm" class="searchrow">
+      <div class="field">
+        <label for="cutLength">Longueur à découper</label>
+        <input id="cutLength" type="number" inputmode="numeric" min="1" step="1" placeholder="ex : 450" autocomplete="off">
+        <span>mm</span>
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="btn big" type="submit">Rechercher</button>
+      </div>
+    </form>
+    <div id="result" hidden></div>
+  </section>
+
+  <div class="cols">
+    <section class="panel" id="stock-chutes">
+      <h2>Stock de chutes</h2>
+      <div class="tabs" id="tabs"></div>
+      <div id="stock"></div>
+    </section>
+
+    <div class="stack">
+      <section class="panel">
+        <h2>Ajouter une chute existante</h2>
+        <form id="addForm">
+          <div class="formrow">
+            <div>
+              <label for="addProfile">Profilé</label>
+              <select id="addProfile"></select>
+            </div>
+            <div>
+              <label for="addLength">Longueur (mm)</label>
+              <input id="addLength" type="number" inputmode="numeric" min="1" step="1">
+            </div>
+          </div>
+          <button class="btn" type="submit">Ajouter au stock</button>
+        </form>
+      </section>
+
+      <section class="panel" id="historique">
+        <h2>Dernières découpes</h2>
+        <div id="history"></div>
+      </section>
+
+      <section class="panel" id="parametres">
+        <h2>Paramètres</h2>
+        <form id="setForm">
+          <div class="settings">
+            <div><label for="setBar">Barre neuve (mm)</label><input id="setBar" type="number" min="1"></div>
+            <div><label for="setKerf">Trait de scie (mm)</label><input id="setKerf" type="number" min="0" step="0.5"></div>
+            <div><label for="setMin">Chute mini gardée (mm)</label><input id="setMin" type="number" min="0"></div>
+          </div>
+          <div class="actions" style="margin-top:0">
+            <button class="btn ghost" type="submit">Enregistrer les paramètres</button>
+            <button class="btn ghost" type="button" id="exportBtn" hidden>Exporter le stock (CSV)</button>
+          </div>
+        </form>
+        <p class="muted">Un reste plus court que la « chute mini » est compté comme déchet et n'entre pas en stock.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer><div class="wrap">TDM by Insidix · outil interne atelier – gestion des chutes de profilés</div></footer>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const PROFILES = ['40X40', '80X40', '80X80'];
+
+let chutes = [];
+let history = [];
+let settings = { barLength: 2000, kerf: 5, minKeep: 100 };
+let version = 0;
+let profile = PROFILES[0];
+let stockTab = PROFILES[0];
+let pending = null;
+let busy = false;
+let armedDelete = null;
+
+const $ = id => document.getElementById(id);
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(t._h);
+  t._h = setTimeout(() => { t.hidden = true; }, 3500);
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }); }
+  catch (e) { return ''; }
+}
+
+function chutesOf(p) {
+  return chutes.filter(c => c.profile === p).sort((a, b) => a.length - b.length || a.num - b.num);
+}
+
+// Reste après la coupe : le trait de scie n'est retiré que s'il reste de la matière.
+function remainderAfter(source, cut) {
+  if (source === cut) return 0;
+  return Math.max(0, source - cut - settings.kerf);
+}
+
+/* ---------- Serveur ---------- */
+
+async function call(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || 'Le serveur ne répond pas. Réessayez dans un instant.');
+  if (json.state) applyState(json.state);
+  return json;
+}
+
+function applyState(s) {
+  if (s.version === version) return;
+  version = s.version;
+  chutes = s.chutes;
+  history = s.history;
+  settings = s.settings;
+  armedDelete = chutes.some(c => c.id === armedDelete) ? armedDelete : null;
+  renderAll();
+}
+
+async function refresh() {
+  try {
+    const res = await fetch('/api/state', { cache: 'no-store' });
+    if (!res.ok) throw new Error();
+    applyState(await res.json());
+    $('status').textContent = 'Stock partagé · en direct';
+    $('offline').hidden = true;
+  } catch (e) {
+    $('status').textContent = 'Hors ligne';
+    $('offline').hidden = false;
+  }
+}
+
+/* ---------- Rendu ---------- */
+
+function renderProfiles() {
+  $('profiles').innerHTML = PROFILES.map(p => {
+    const n = chutesOf(p).length;
+    return `<button type="button" data-p="${p}" aria-pressed="${p === profile}">${p}<small>${n} chute${n > 1 ? 's' : ''} en stock</small></button>`;
+  }).join('');
+  const sel = $('addProfile');
+  if (!sel.options.length) PROFILES.forEach(p => sel.add(new Option(p, p)));
+}
+
+function renderStock() {
+  $('tabs').innerHTML = PROFILES.map(p =>
+    `<button type="button" data-tab="${p}" aria-pressed="${p === stockTab}">${p} · ${chutesOf(p).length}</button>`).join('');
+  const list = chutesOf(stockTab);
+  if (!list.length) {
+    $('stock').innerHTML = `<div class="empty">Aucune chute ${stockTab} en stock. Les restes des découpes validées s'ajoutent ici automatiquement ; vous pouvez aussi saisir une chute existante à droite.</div>`;
+    return;
+  }
+  const total = list.reduce((s, c) => s + c.length, 0);
+  $('stock').innerHTML = `
+    <div class="tablewrap"><table>
+      <thead><tr><th>N°</th><th class="r">Longueur</th><th>Ajoutée le</th><th></th></tr></thead>
+      <tbody>${list.map(c => `
+        <tr>
+          <td><span class="tag">#${c.num}</span></td>
+          <td class="r num">${c.length} mm</td>
+          <td class="muted">${fmtDate(c.date)}</td>
+          <td class="r"><button type="button" class="btn small ${armedDelete === c.id ? 'danger' : 'ghost'}" data-del="${esc(c.id)}">${armedDelete === c.id ? 'Confirmer' : 'Retirer'}</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+    <p class="muted">${list.length} chute(s) · <span class="num">${(total / 1000).toFixed(2)}</span> m linéaires</p>`;
+}
+
+function renderHistory() {
+  if (!history.length) { $('history').innerHTML = '<div class="empty">Les découpes validées apparaîtront ici.</div>'; return; }
+  $('history').innerHTML = `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Date</th><th>Profilé</th><th class="r">Coupe</th><th>Depuis</th><th>Reste</th></tr></thead>
+      <tbody>${history.map(h => `
+        <tr>
+          <td class="muted">${fmtDate(h.date)}</td>
+          <td class="num">${esc(h.profile)}</td>
+          <td class="r num">${h.cut}</td>
+          <td>${h.source === 'chute' ? 'Chute #' + h.sourceNum + ' (' + h.sourceLength + ')' : 'Barre neuve'}</td>
+          <td>${h.remainder > 0 ? (h.kept ? '<span class="tag">#' + h.keptNum + '</span> ' + h.remainder : h.remainder + ' déchet') : '—'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+function renderSettings() {
+  $('hBar').textContent = settings.barLength;
+  $('hKerf').textContent = settings.kerf;
+  if (document.activeElement && document.activeElement.closest('#setForm')) return;
+  $('setBar').value = settings.barLength;
+  $('setKerf').value = settings.kerf;
+  $('setMin').value = settings.minKeep;
+}
+
+function renderAll() { renderProfiles(); renderStock(); renderHistory(); renderSettings(); }
+
+function barDiagram(source, cut) {
+  const kerf = source > cut ? Math.min(settings.kerf, source - cut) : 0;
+  const rest = remainderAfter(source, cut);
+  const kept = rest >= settings.minKeep;
+  const pct = v => (v / source * 100) + '%';
+  return `<div class="bar" role="img" aria-label="Pièce ${cut} mm, reste ${rest} mm">
+    <div class="piece" style="width:${pct(cut)}">${cut} mm</div>
+    ${kerf ? `<div class="kerf" style="width:${pct(kerf)}"></div>` : ''}
+    ${rest ? `<div class="${kept ? 'rest' : 'scrap'}" style="width:${pct(rest)}">${rest} mm</div>` : ''}
+  </div>`;
+}
+
+function restLine(rest, label) {
+  if (rest === 0) return `<p>${label} : <strong class="num">0 mm</strong></p>`;
+  return `<p>${label} : <strong class="num">${rest} mm</strong> ${rest >= settings.minKeep ? '→ mise en stock (un numéro vous sera donné)' : '→ déchet (moins de ' + settings.minKeep + ' mm)'}</p>`;
+}
+
+function showResult(cls, html) {
+  const r = $('result');
+  r.className = 'result ' + cls;
+  r.innerHTML = html;
+  r.hidden = false;
+}
+
+function clearResult() { pending = null; $('result').hidden = true; $('result').innerHTML = ''; }
+
+/* ---------- Recherche ---------- */
+
+async function search() {
+  clearResult();
+  await refresh();
+  const cut = Math.round(Number($('cutLength').value));
+  if (!cut || cut <= 0) {
+    showResult('warn', '<p class="verdict">Longueur manquante</p><p>Saisissez la longueur de la pièce en millimètres.</p>');
+    return;
+  }
+  if (cut > settings.barLength) {
+    showResult('warn', `<p class="verdict">Trop long</p><p>${cut} mm dépasse une barre neuve (${settings.barLength} mm).</p>`);
+    return;
+  }
+  // La plus courte chute qui suffit : on garde les grandes pour les grandes pièces.
+  const fits = chutesOf(profile).filter(c => c.length >= cut);
+  const best = fits[0];
+  if (best) {
+    pending = { source: 'chute', chuteId: best.id, cut, profile };
+    showResult('ok', `
+      <p class="verdict">OUI – une chute convient</p>
+      <p>Prendre la chute <span class="tag">#${best.num}</span> de <strong class="num">${best.length} mm</strong> (${profile}).</p>
+      ${barDiagram(best.length, cut)}
+      ${restLine(remainderAfter(best.length, cut), 'Reste après coupe')}
+      ${fits.length > 1 ? `<p class="muted">Autres chutes possibles : ${fits.slice(1, 6).map(c => '#' + c.num + ' (' + c.length + ')').join(', ')}${fits.length > 6 ? '…' : ''}</p>` : ''}
+      <div class="actions">
+        <button type="button" class="btn" data-act="confirm">Valider la découpe</button>
+        <button type="button" class="btn ghost" data-act="newbar">Prendre une barre neuve</button>
+        <button type="button" class="btn ghost" data-act="cancel">Annuler</button>
+      </div>`);
+  } else {
+    showNewBar(cut, true);
+  }
+}
+
+function showNewBar(cut, noChute) {
+  pending = { source: 'barre', cut, profile };
+  showResult(noChute ? 'ko' : 'warn', `
+    <p class="verdict">${noChute ? 'NON – aucune chute ne convient' : 'Barre neuve'}</p>
+    <p>Couper dans une <strong>barre neuve de <span class="num">${settings.barLength}</span> mm</strong> (${profile}).</p>
+    ${barDiagram(settings.barLength, cut)}
+    ${restLine(remainderAfter(settings.barLength, cut), 'Chute produite')}
+    <div class="actions">
+      <button type="button" class="btn" data-act="confirm">Valider la découpe</button>
+      <button type="button" class="btn ghost" data-act="cancel">Annuler</button>
+    </div>`);
+}
+
+/* ---------- Actions ---------- */
+
+async function confirmCut() {
+  if (!pending || busy) return;
+  busy = true;
+  document.querySelectorAll('#result button').forEach(b => { b.disabled = true; });
+  const p = pending;
+  try {
+    const r = await call('POST', '/api/cut', p);
+    clearResult();
+    $('cutLength').value = '';
+    toast(r.kept ? `Découpe enregistrée. Écrivez « #${r.keptNum} » sur la chute de ${r.remainder} mm.` : `Découpe de ${p.cut} mm enregistrée.`);
+    $('cutLength').focus();
+  } catch (e) {
+    toast(e.message);
+    clearResult();
+    refresh();
+  } finally {
+    busy = false;
+  }
+}
+
+async function addManual() {
+  if (busy) return;
+  const p = $('addProfile').value;
+  const length = Math.round(Number($('addLength').value));
+  if (!length || length <= 0) { toast('Saisissez la longueur de la chute en millimètres.'); return; }
+  busy = true;
+  try {
+    const r = await call('POST', '/api/chutes', { profile: p, length });
+    $('addLength').value = '';
+    stockTab = p;
+    renderStock();
+    toast(`Chute ajoutée. Écrivez « #${r.num} » dessus.`);
+  } catch (e) { toast(e.message); }
+  finally { busy = false; }
+}
+
+async function removeChute(id) {
+  if (armedDelete !== id) { armedDelete = id; renderStock(); return; }
+  armedDelete = null;
+  try {
+    await call('DELETE', '/api/chutes/' + encodeURIComponent(id));
+    clearResult();
+    toast('Chute retirée du stock.');
+  } catch (e) { toast(e.message); renderStock(); }
+}
+
+async function saveSettings() {
+  const s = { barLength: $('setBar').value, kerf: $('setKerf').value, minKeep: $('setMin').value };
+  try {
+    document.activeElement && document.activeElement.blur();
+    await call('PUT', '/api/settings', s);
+    clearResult();
+    toast('Paramètres enregistrés pour tous les postes.');
+  } catch (e) { toast(e.message); }
+}
+
+/* ---------- Événements ---------- */
+
+$('profiles').addEventListener('click', e => {
+  const b = e.target.closest('button[data-p]');
+  if (!b) return;
+  profile = b.dataset.p; stockTab = profile;
+  clearResult(); renderProfiles(); renderStock();
+  $('cutLength').focus();
+});
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('button[data-tab]');
+  if (b) { stockTab = b.dataset.tab; armedDelete = null; renderStock(); }
+});
+$('stock').addEventListener('click', e => {
+  const b = e.target.closest('button[data-del]');
+  if (b) removeChute(b.dataset.del);
+});
+$('result').addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  if (b.dataset.act === 'confirm') confirmCut();
+  else if (b.dataset.act === 'newbar' && pending) showNewBar(pending.cut, false);
+  else clearResult();
+});
+$('searchForm').addEventListener('submit', e => { e.preventDefault(); search(); });
+$('cutLength').addEventListener('input', clearResult);
+$('addForm').addEventListener('submit', e => { e.preventDefault(); addManual(); });
+$('setForm').addEventListener('submit', e => { e.preventDefault(); saveSettings(); });
+$('exportBtn').hidden = false;
+$('exportBtn').addEventListener('click', () => { location.href = '/api/export.csv'; });
+
+/* ---------- Fond « réseau » du bandeau ---------- */
+(function () {
+  const c = document.getElementById('net');
+  const ctx = c.getContext('2d');
+  function draw() {
+    const w = c.clientWidth, h = c.clientHeight, dpr = window.devicePixelRatio || 1;
+    c.width = w * dpr; c.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    let s = 7;
+    const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    const pts = Array.from({ length: Math.round(w / 14) }, () => ({ x: rnd() * w, y: h * (0.25 + rnd() * 0.75) }));
+    ctx.strokeStyle = 'rgba(200,225,255,.35)'; ctx.lineWidth = .7;
+    pts.forEach((a, i) => pts.slice(i + 1).forEach(b => {
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < 110) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    }));
+    ctx.fillStyle = 'rgba(225,240,255,.8)';
+    pts.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, 1.6, 0, 7); ctx.fill(); });
+  }
+  draw();
+  let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(draw, 150); });
+})();
+
+renderAll();
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 4000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>

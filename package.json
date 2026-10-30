@@ -1,0 +1,9 @@
+{
+  "name": "gestion-chutes-elcom",
+  "version": "1.0.0",
+  "description": "Gestion des chutes de profilés Elcom – TDM by Insidix",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" },
+  "private": true
+}

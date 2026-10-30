@@ -1,31 +1,47 @@
-# Gestion des chutes – Profilés Elcom
+# Gestion des chutes – Profilés Elcom (TDM by Insidix)
 
-Page web interne pour gérer le stock de chutes de profilés Elcom (40X40, 80X40, 80X80).
+Application web interne : l'opérateur choisit le profilé (40X40, 80X40, 80X80), saisit la longueur à couper,
+et le logiciel répond **OUI** (avec la chute à prendre) ou **NON** (barre neuve de 2000 mm).
+Le trait de scie (5 mm) est pris en compte, le reste est remis en stock avec un numéro à écrire sur la pièce.
+Le stock est **partagé** entre tous les postes et protégé par **mot de passe**.
 
-## Utilisation
+## Lancer le site
 
-Ouvrir `index.html` dans un navigateur (aucune installation nécessaire).
+Prérequis : [Node.js](https://nodejs.org) 18 ou plus récent. Aucune autre installation.
 
-1. Choisir le profilé (40X40, 80X40 ou 80X80).
-2. Saisir la longueur à découper (mm) puis **Rechercher** (ou touche Entrée).
-3. Le logiciel répond :
-   - **OUI**: il indique la chute à prendre (la plus courte qui suffit, pour limiter les pertes) et le reste après coupe.
-   - **NON**: il faut prendre une barre neuve de 2000 mm ; la chute produite est indiquée.
-4. **Valider la découpe** met le stock à jour : la chute utilisée est retirée, le reste (moins le trait de scie de 5 mm) est ajouté au stock avec un numéro à reporter sur la pièce.
+```bash
+APP_PASSWORD="votre-mot-de-passe" node server.js
+```
 
-## Règles de calcul
+Puis ouvrir http://localhost:3000. Le navigateur demande un identifiant (n'importe lequel) et le mot de passe.
 
-- Barre neuve : 2000 mm, trait de scie : 5 mm (modifiables dans « Paramètres »).
-- Reste = longueur source − longueur coupée − 5 mm (pas de trait de scie si la longueur est exacte).
-- Les restes inférieurs à la « chute mini conservée » (100 mm par défaut) sont considérés comme déchet.
+| Variable       | Rôle                                             | Défaut              |
+|----------------|--------------------------------------------------|---------------------|
+| `APP_PASSWORD` | mot de passe d'accès                             | généré au démarrage |
+| `PORT`         | port d'écoute                                    | `3000`              |
+| `DATA_DIR`     | dossier où est enregistré `data.json` (le stock) | `./data`            |
 
-## Données
+**Sauvegarde** : tout le stock est dans `data/data.json`. Copiez ce fichier régulièrement.
 
-Les données sont enregistrées dans le navigateur (localStorage) du poste utilisé.
-Les boutons **Exporter / Importer** permettent de sauvegarder le stock dans un fichier JSON ou de le transférer sur un autre poste.
+## Mettre le site en ligne (privé)
 
-## Version en ligne (stock partagé)
+### Option A – Un PC ou serveur de l'entreprise + Cloudflare Tunnel (gratuit, recommandé)
+1. Sur un PC toujours allumé : installer Node.js, copier ce dossier, lancer `node server.js` avec `APP_PASSWORD`.
+2. Installer `cloudflared` et créer un tunnel vers `http://localhost:3000`
+   (https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/).
+   Le site obtient une adresse HTTPS, sans ouvrir de port sur la box.
+3. Optionnel : Cloudflare Access pour n'autoriser que les adresses e-mail de l'entreprise.
 
-`artifact/chutes-elcom.html` est la source de la page publiée sur claude.ai
-(https://claude.ai/artifact/AwHpzUbCYNeqbnrw1RnfQE), aux couleurs TDM by Insidix.
-Le stock y est commun à tous les postes et mis à jour en temps réel.
+Si le site ne sert qu'à l'atelier, l'étape 2 est inutile : les postes du réseau local ouvrent `http://<ip-du-pc>:3000`.
+
+### Option B – Hébergeur avec Docker (Render, Railway, Fly.io, VPS…)
+Le `Dockerfile` est prêt. Définir `APP_PASSWORD` et **monter un disque persistant sur `/data`**,
+sinon le stock est perdu à chaque redémarrage.
+
+Toujours utiliser HTTPS sur Internet : le mot de passe circule dans chaque requête.
+
+## Fichiers
+
+- `server.js` – serveur (API + pages), sans dépendance
+- `public/` – interface (page, logos)
+- `artifact/chutes-elcom.html` – ancienne version hébergée sur claude.ai
