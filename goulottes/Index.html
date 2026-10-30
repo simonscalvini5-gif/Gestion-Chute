@@ -299,6 +299,34 @@
   .alert { margin: 16px 0 0; padding: 14px 16px; border-radius: 12px; background: var(--warn-bg); color: var(--warn); border: 1px solid #f0d9a0; }
   .alert b { color: var(--warn); }
 
+  /* Stock de bruts */
+  .bstock { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .brut { position: relative; background: #ffffff; border: 1px solid var(--line); border-radius: 16px; padding: 16px 16px 14px; box-shadow: var(--shadow);
+    display: grid; gap: 10px; overflow: hidden; }
+  .brut::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--st); }
+  .brut.ok { --st: var(--ok); --stbg: var(--ok-bg); } .brut.low { --st: #d98a00; --stbg: #fff3d6; } .brut.out { --st: var(--ko); --stbg: var(--ko-bg); }
+  .brut .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .brut .top span { font-size: .78rem; color: var(--muted); }
+  .brut .top b { display: block; font: 700 1.5rem var(--font-head); color: var(--ink); line-height: 1.1; }
+  .brut .top .duct-photo { width: 78px; height: 52px; margin: -4px -4px 0 0; }
+  .brut .count { display: flex; align-items: baseline; gap: 8px; }
+  .brut .count b { font: 700 2.6rem var(--font-head); color: var(--st); line-height: 1; }
+  .brut .count span { font-size: .85rem; color: var(--muted); }
+  .brut .chip { justify-self: start; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--st); background: var(--stbg); border-radius: 999px; padding: 3px 10px; }
+  .pile { display: flex; flex-direction: column-reverse; gap: 3px; min-height: 66px; justify-content: flex-start; }
+  .pile i { display: block; height: 6px; border-radius: 2px; width: 100%;
+    background: linear-gradient(180deg, #d4d9df 0%, #a9b0b8 55%, #8d949c 100%); box-shadow: inset 0 0 0 1px rgba(31,42,68,.12); }
+  .pile i:nth-child(odd) { margin-left: 6px; width: calc(100% - 6px); }
+  .pile .more { font-size: .75rem; color: var(--muted); text-align: right; }
+  .pile .none { display: grid; place-items: center; min-height: 66px; border: 2px dashed #f2c4bf; border-radius: 8px; color: var(--ko); font-size: .8rem; font-weight: 600; }
+  .gauge { position: relative; height: 8px; border-radius: 999px; background: var(--bg-soft); overflow: hidden; }
+  .gauge > span { position: absolute; inset: 0 auto 0 0; background: var(--st); border-radius: 999px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+  .gauge > em { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); opacity: .35; }
+  .stockalert { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; margin-bottom: 16px;
+    background: var(--ko-bg); color: var(--ko); border: 1px solid #f2c4bf; }
+  .stockalert.low { background: #fff3d6; color: #8a5300; border-color: #f0d9a0; }
+  .result .blocked { margin-top: 10px; padding: 10px 14px; border-radius: 10px; background: #ffffff; border: 1px solid #f2c4bf; color: var(--ko); font-weight: 600; }
+
   /* Vue 3D */
   .v3d { position: relative; height: 500px; border-radius: 16px; overflow: hidden; margin: -4px 0 22px;
     background: radial-gradient(120% 140% at 25% 10%, #3a78a8 0%, #24518a 40%, #1a3466 75%, #142a55 100%);
@@ -480,14 +508,15 @@
     </section>
     <section>
       <div class="sectiontitle"><h2>Goulottes brutes</h2><p class="muted" id="brutTotal"></p></div>
-      <div class="stats" id="bruts"></div>
+      <div id="brutAlertBox"></div>
+      <div class="bstock" id="bruts"></div>
       <form id="brutForm" class="card formrow" style="margin-top:18px">
         <div>
           <label for="brutProfile">Section</label>
           <select id="brutProfile"></select>
         </div>
         <div>
-          <label for="brutQty">Nombre de bruts</label>
+          <label for="brutQty">Nombre de bruts reçus</label>
           <input id="brutQty" type="number" inputmode="numeric" min="1" step="1" value="1">
         </div>
         <button class="btn" type="submit">Ajouter des bruts</button>
@@ -1169,7 +1198,8 @@ function applyView(name) {
 function renderProfiles() {
   setHTML($('profiles'), PROFILES.map(p => {
     const n = chutesOf(p).length;
-    return `<button type="button" data-p="${p}" style="--k:${PROFILES.indexOf(p)}" aria-pressed="${p === profile}">${ductSVG(p)}<b>${short(p)}</b><small>${n} chute${n > 1 ? 's' : ''}</small></button>`;
+    const nb = bruts[p] || 0;
+    return `<button type="button" data-p="${p}" style="--k:${PROFILES.indexOf(p)}" aria-pressed="${p === profile}">${ductSVG(p)}<b>${short(p)}</b><small>${n} chute${n > 1 ? 's' : ''} · ${nb ? nb + ' brut' + (nb > 1 ? 's' : '') : 'rupture'}</small></button>`;
   }).join(''));
   const sel = $('addProfile');
   if (!sel.options.length) PROFILES.forEach(p => sel.add(new Option(short(p), p)));
@@ -1242,14 +1272,33 @@ function renderStock() {
     </table></div>`);
 }
 
+const SEUIL = 3;
+const brutState = n => n <= 0 ? 'out' : n <= SEUIL ? 'low' : 'ok';
+
 function renderBruts() {
+  const max = Math.max(10, ...PROFILES.map(p => bruts[p] || 0));
   setHTML($('bruts'), PROFILES.map(p => {
     const n = bruts[p] || 0;
-    return `<div class="stat" style="--k:${PROFILES.indexOf(p)}">${ductSVG(p, 'duct-mini')}<span>Brut ${settings.barLength} mm</span><b>${short(p)}</b>
-      <span class="num">${n} en stock ${n ? '' : '<span class="pill ko">vide</span>'}</span></div>`;
+    const st = brutState(n);
+    const label = { ok: 'Disponible', low: 'Stock bas', out: 'Rupture' }[st];
+    const shown = Math.min(n, 10);
+    const pile = n ? Array.from({ length: shown }, () => '<i></i>').join('') + (n > shown ? `<span class="more">+ ${n - shown}</span>` : '')
+      : '<span class="none">Découpe impossible</span>';
+    return `<div class="brut ${st}">
+      <div class="top"><div><span>Brut ${settings.barLength} mm</span><b>${short(p)}</b></div>${ductSVG(p)}</div>
+      <div class="count"><b class="num">${n}</b><span>brut${n > 1 ? 's' : ''} disponible${n > 1 ? 's' : ''}</span></div>
+      <div class="pile" aria-hidden="true">${pile}</div>
+      <div class="gauge" title="Seuil d'alerte : ${SEUIL}"><span style="width:${Math.min(100, n / max * 100)}%"></span><em style="left:${SEUIL / max * 100}%"></em></div>
+      <span class="chip">${label}</span>
+    </div>`;
   }).join(''));
   const total = PROFILES.reduce((s, p) => s + (bruts[p] || 0), 0);
-  $('brutTotal').textContent = `${total} brut(s) au total`;
+  $('brutTotal').textContent = `${total} brut(s) au total · alerte e-mail à ${SEUIL} ou moins`;
+  const out = PROFILES.filter(p => !(bruts[p] > 0));
+  const low = PROFILES.filter(p => brutState(bruts[p] || 0) === 'low');
+  setHTML($('brutAlertBox'), out.length
+    ? `<div class="stockalert"><b>Rupture :</b> ${out.map(short).join(', ')}. Aucune découpe dans une goulotte neuve n'est possible pour ${out.length > 1 ? 'ces sections' : 'cette section'}.</div>`
+    : low.length ? `<div class="stockalert low"><b>Stock bas :</b> ${low.map(p => `${short(p)} (${bruts[p]})`).join(', ')}. Pensez à commander (rubrique Achat) : une alerte e-mail part à chaque passage sous le seuil.</div>` : '');
   const sel = $('brutProfile');
   if (!sel.options.length) PROFILES.forEach(p => sel.add(new Option(short(p), p)));
 }
@@ -1340,7 +1389,7 @@ async function search() {
       ${restLine(remainderOf([cut], best.length))}
       <div class="actions">
         <button type="button" class="btn" data-act="confirm">Valider la découpe</button>
-        <button type="button" class="btn ghost" data-act="newbar">Prendre une goulotte neuve</button>
+        ${(bruts[profile] || 0) > 0 ? '<button type="button" class="btn ghost" data-act="newbar">Prendre une goulotte neuve</button>' : ''}
         <button type="button" class="btn ghost" data-act="cancel">Annuler</button>
       </div>`, { source: 'chute', num: best.num, total: best.length, cut });
   } else {
@@ -1349,6 +1398,15 @@ async function search() {
 }
 
 function showNewBar(cut, noChute) {
+  if (!((bruts[profile] || 0) > 0)) {
+    pending = null;
+    showResult('ko', `
+      <p class="verdict">NON – découpe impossible</p>
+      <p>${noChute ? `Aucune chute ${short(profile)} assez longue, et ` : ''}plus aucune goulotte brute ${short(profile)} en stock.</p>
+      <div class="blocked">Rupture de bruts ${short(profile)} : ajoutez des bruts reçus (onglet Stock) ou passez commande (rubrique Achat).</div>
+      <div class="actions"><button type="button" class="btn ghost" data-act="cancel">Fermer</button></div>`);
+    return;
+  }
   pending = { source: 'barre', cut, profile };
   showResult(noChute ? 'ko' : 'warn', `
     <p class="verdict">${noChute ? 'NON – goulotte neuve' : 'Goulotte neuve'}</p>
@@ -1469,7 +1527,7 @@ function brutNeeds(bars) {
 function brutAlert(bars) {
   const miss = brutNeeds(bars).filter(r => r.missing > 0);
   if (!miss.length) return '';
-  return `<div class="alert" style="margin:0 0 18px"><b>Bruts insuffisants :</b> ${miss.map(r => `${short(r.profile)} : ${r.need} nécessaire(s), ${r.stock} en stock, <b>il en manque ${r.missing}</b>`).join(' · ')}. Prévenez les achats.</div>`;
+  return `<div class="alert" style="margin:0 0 18px"><b>Bruts insuffisants :</b> ${miss.map(r => `${short(r.profile)} : ${r.need} nécessaire(s), ${r.stock} en stock, <b>il en manque ${r.missing}</b>`).join(' · ')}. Le plan peut être imprimé, mais la découpe ne pourra être validée qu'une fois les bruts ajoutés au stock.</div>`;
 }
 
 function summarise(bars) {
@@ -1538,7 +1596,9 @@ function renderPlan() {
   });
   html += `<div class="actions">
       <button type="button" class="btn" id="pdfBtn">Générer le PDF</button>
-      ${plan.applied ? '<span class="muted" style="align-self:center">Stock mis à jour ✓</span>' : '<button type="button" class="btn ghost" id="applyBtn">Valider : mettre le stock à jour</button>'}
+      ${plan.applied ? '<span class="muted" style="align-self:center">Stock mis à jour ✓</span>'
+        : brutNeeds(plan.bars).some(r => r.missing > 0) ? '<button type="button" class="btn ghost" disabled title="Bruts insuffisants">Validation bloquée : bruts insuffisants</button>'
+        : '<button type="button" class="btn ghost" id="applyBtn">Valider : mettre le stock à jour</button>'}
       <button type="button" class="btn ghost" id="cancelPlan">${plan.applied ? 'Fermer' : 'Annuler le plan'}</button>
     </div>
     <div id="pdfLink"></div>
@@ -1893,7 +1953,9 @@ function updateHint() {
   const best = chutesOf(profile).find(c => c.length >= cut);
   $('hint').innerHTML = best
     ? `<span class="yes">Chute #${best.num} de ${best.length} mm disponible</span>`
-    : `<span class="no">Pas de chute ${short(profile)} assez longue : goulotte neuve</span>`;
+    : (bruts[profile] || 0) > 0
+      ? `<span class="no">Pas de chute ${short(profile)} assez longue : goulotte neuve (${bruts[profile]} en stock)</span>`
+      : `<span class="no">Ni chute ni brut ${short(profile)} : découpe impossible</span>`;
 }
 let hintTimer;
 $('cutLength').addEventListener('input', () => { clearResult(); clearTimeout(hintTimer); hintTimer = setTimeout(updateHint, 180); });

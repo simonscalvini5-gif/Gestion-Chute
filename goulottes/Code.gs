@@ -11,6 +11,10 @@ const MOT_DE_PASSE = '';
 const ACHAT_IDENTIFIANT = 'Morgan';
 const ACHAT_MOT_DE_PASSE = '';
 
+// Alerte e-mail quand il ne reste plus que SEUIL_ALERTE bruts (ou moins) d'une section.
+const ALERTE_EMAIL = 'simon.scalvini@insidix.com';
+const SEUIL_ALERTE = 3;
+
 // Sections de goulotte ; brutes de 2000 mm (réglable dans Paramètres).
 const PROFILES = ['Goulotte 40x40', 'Goulotte 40x60', 'Goulotte 40x80', 'Goulotte 60x60', 'Goulotte 60x80'];
 const DEFAULT_SETTINGS = { barLength: 2000, kerf: 5, minKeep: 100 };
@@ -135,6 +139,7 @@ function readBruts() {
 function changeBruts(deltas, motif) {
   const sh = brutsSheet();
   const now = new Date();
+  const alerts = [];
   Object.keys(deltas).forEach(pr => {
     const d = Math.round(deltas[pr]);
     if (!d || PROFILES.indexOf(pr) < 0) return;
@@ -143,9 +148,33 @@ function changeBruts(deltas, motif) {
     let i = names.indexOf(pr);
     if (i < 0) { sh.appendRow([pr, 0]); i = names.length; }
     const cell = sh.getRange(i + 2, 2);
-    cell.setValue(Math.max(0, Math.round(Number(cell.getValue()) || 0) + d));
+    const before = Math.max(0, Math.round(Number(cell.getValue()) || 0));
+    const after = Math.max(0, before + d);
+    cell.setValue(after);
     mouvementsSheet().appendRow([now, pr, d, motif]);
+    // Alerte au passage sous le seuil, puis à la rupture.
+    if (after < before && ((before > SEUIL_ALERTE && after <= SEUIL_ALERTE) || (before > 0 && after === 0))) {
+      alerts.push({ profile: pr, left: after });
+    }
   });
+  if (alerts.length) sendAlert(alerts, motif);
+}
+
+function sendAlert(alerts, motif) {
+  if (!ALERTE_EMAIL) return;
+  const lines = alerts.map(a => a.profile + ' : ' + (a.left === 0 ? 'RUPTURE (0 brut)' : 'plus que ' + a.left + ' brut(s)'));
+  const rupture = alerts.some(a => a.left === 0);
+  const subject = (rupture ? '[Rupture] ' : '[Stock bas] ') + 'Goulottes brutes – ' + alerts.map(a => a.profile.replace('Goulotte ', '')).join(', ');
+  const html = '<div style="font-family:Arial,sans-serif;color:#1f2a44">'
+    + '<p style="font-size:18px;color:#1f3f84"><b>TDM by INSIDI<span style="color:#f2b705">X</span></b> – stock de goulottes brutes</p>'
+    + '<p>' + (rupture ? 'Une ou plusieurs sections sont en <b style="color:#b42318">rupture</b>.' : 'Le stock de goulottes brutes passe sous le seuil de ' + SEUIL_ALERTE + '.') + '</p>'
+    + '<ul>' + lines.map(l => '<li>' + esc(l) + '</li>').join('') + '</ul>'
+    + '<p style="color:#7a8291">Dernier mouvement : ' + esc(motif) + '. Pensez à passer commande (rubrique Achat).</p></div>';
+  try {
+    MailApp.sendEmail({ to: ALERTE_EMAIL, subject: subject, body: lines.join('\n'), htmlBody: html });
+  } catch (e) {
+    mouvementsSheet().appendRow([new Date(), '', 0, 'Alerte e-mail non envoyée : ' + e.message]);
+  }
 }
 
 function addBruts(p) {
@@ -296,6 +325,9 @@ function cut(p) {
   const sh = stockSheet();
   let sourceLength = s.barLength;
   let sourceNum = '';
+  if (p.source !== 'chute' && (readBruts()[p.profile] || 0) <= 0) {
+    return { error: 'Plus de goulotte brute ' + p.profile.replace('Goulotte ', '') + ' en stock : découpe impossible. Ajoutez des bruts (Stock) ou passez par la rubrique Achat.' };
+  }
   if (p.source === 'chute') {
     const row = findRow(String(p.chuteId));
     if (!row) return { error: 'Cette chute vient d\'être prise par quelqu\'un d\'autre. Relancez la recherche.' };
@@ -382,6 +414,14 @@ function applyPlan(p) {
     const sum = pieces.reduce((a, x) => a + x, 0) + s.kerf * (pieces.length - 1);
     if (sum > total) return { error: 'Les paramètres ou le stock ont changé. Recalculez le plan.' };
     checked.push({ b: b, pieces: pieces, total: total, sourceNum: sourceNum });
+  }
+
+  const need = {};
+  checked.forEach(c => { if (c.b.source !== 'chute') need[c.b.profile] = (need[c.b.profile] || 0) + 1; });
+  const stock = readBruts();
+  const missing = Object.keys(need).filter(pr => need[pr] > (stock[pr] || 0));
+  if (missing.length) {
+    return { error: 'Bruts insuffisants : ' + missing.map(pr => pr.replace('Goulotte ', '') + ' (' + need[pr] + ' nécessaire(s), ' + (stock[pr] || 0) + ' en stock)').join(', ') + '. Découpe impossible tant que le stock n\'est pas complété.' };
   }
 
   // Retire les chutes utilisées, ajoute les restes, écrit l'historique.

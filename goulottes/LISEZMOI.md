@@ -30,6 +30,11 @@ C'est un site **séparé** du site profilés : il a son propre tableau Google Sh
 - **Achat** (identifiant `Morgan` + mot de passe Achat) : choisir les machines à fabriquer (− / +), « Calculer les bruts à acheter » :
   les pièces sont placées d'abord dans les chutes, puis dans des goulottes neuves ; le besoin est comparé aux bruts en stock.
   Les quantités sont modifiables ; « Valider l'achat » ajoute les bruts au stock.
+- **Alerte e-mail** à simon.scalvini@insidix.com quand une section passe à 3 bruts ou moins, puis à 0 (rupture).
+  Adresse et seuil réglables en haut de `Code.gs` (`ALERTE_EMAIL`, `SEUIL_ALERTE`). Lors de la mise à jour, Google
+  demande l'autorisation « envoyer des e-mails en votre nom » : l'accepter. Les e-mails partent du compte qui a publié le site.
+- **Rupture** : sans brut d'une section, la découpe dans une goulotte neuve est refusée (recherche et plan),
+  comme dans la réalité ; ajouter les bruts reçus ou passer par Achat.
 - Onglets du tableau : **Bruts** (stock), **Mouvements bruts** (chaque entrée/sortie), **Achats** (historique des achats).
 
 ## Vue 3D
