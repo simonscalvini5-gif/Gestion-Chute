@@ -201,8 +201,6 @@
   .mstage .mirror { position: absolute; left: 50%; top: 76%; height: 60%; max-width: 80%; transform: translateX(-50%) scaleY(-1); transform-origin: top;
     opacity: .18; object-fit: contain; pointer-events: none; user-select: none;
     -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,.9), rgba(0,0,0,0) 32%); mask-image: linear-gradient(to top, rgba(0,0,0,.9), rgba(0,0,0,0) 32%); }
-  .mstage .model { position: absolute; top: 14px; left: 14px; font: 700 .72rem var(--font); letter-spacing: .12em; text-transform: uppercase;
-    color: #ffffff; background: var(--navy); padding: 5px 11px; border-radius: 999px; box-shadow: 0 6px 14px rgba(31, 63, 132, .25); }
   .mstage .live { position: absolute; top: 14px; right: 14px; font: 600 .72rem var(--font); color: var(--navy-deep); background: var(--yellow);
     padding: 5px 11px; border-radius: 999px; display: none; }
   .machine.current .mstage .live { display: block; }
@@ -1300,7 +1298,6 @@ function renderMachines() {
     const photo = machinePhoto(n);
     return `<article class="card machine${current === n ? ' current' : ''}" style="--k:${names.indexOf(n)}">
       <div class="mstage">
-        <span class="model">${machineModel(n)}</span>
         <span class="live">Plan affiché</span>
         <span class="floor"></span>
         <img class="mirror" src="${photo}" alt="" draggable="false">
