@@ -7,6 +7,10 @@
 const IDENTIFIANT = 'Production';
 const MOT_DE_PASSE = '';
 
+// Rubrique Achat : identifiants séparés. Écrivez aussi ce mot de passe entre les guillemets.
+const ACHAT_IDENTIFIANT = 'Morgan';
+const ACHAT_MOT_DE_PASSE = '';
+
 // Sections de goulotte ; brutes de 2000 mm (réglable dans Paramètres).
 const PROFILES = ['Goulotte 40x40', 'Goulotte 40x60', 'Goulotte 40x80', 'Goulotte 60x60', 'Goulotte 60x80'];
 const DEFAULT_SETTINGS = { barLength: 2000, kerf: 5, minKeep: 100 };
@@ -17,6 +21,9 @@ const SHEET_STOCK = 'Stock';
 const SHEET_HISTORY = 'Historique';
 const SHEET_SETTINGS = 'Paramètres';
 const SHEET_MACHINES = 'Machines';
+const SHEET_BRUTS = 'Bruts';
+const SHEET_MOUVEMENTS = 'Mouvements bruts';
+const SHEET_ACHATS = 'Achats';
 
 // Liste de découpe de chaque machine : [section, longueur, quantité].
 // Recopiée une seule fois dans l'onglet « Machines », que l'on modifie ensuite directement dans le tableau.
@@ -67,6 +74,9 @@ function api(action, payload, login) {
     else if (action === 'settings') result = saveSettings(payload);
     else if (action === 'applyPlan') result = applyPlan(payload);
     else if (action === 'pdf') result = makePdf(payload);
+    else if (action === 'addBrut') result = addBruts(payload);
+    else if (action === 'achatLogin') result = achatCheck(payload) || { achats: readAchats() };
+    else if (action === 'achatValidate') result = achatCheck(payload) || validateAchat(payload);
     else return { error: 'Action inconnue.' };
     SpreadsheetApp.flush();
     if (!result.error) result.state = readState();
@@ -94,6 +104,90 @@ const stockSheet = () => sheet(SHEET_STOCK, ['N°', 'Section', 'Longueur (mm)', 
 const historySheet = () => sheet(SHEET_HISTORY,
   ['Date', 'Section', 'Coupe (mm)', 'Source', 'Longueur source (mm)', 'N° source', 'Reste (mm)', 'Gardée', 'N° gardé']);
 const settingsSheet = () => sheet(SHEET_SETTINGS, ['Paramètre', 'Valeur']);
+const mouvementsSheet = () => sheet(SHEET_MOUVEMENTS, ['Date', 'Section', 'Quantité', 'Motif']);
+const achatsSheet = () => sheet(SHEET_ACHATS, ['Date', 'Acheteur', 'Référence', 'Section', 'Quantité']);
+
+/* ---------- Goulottes brutes (barres neuves de 2000 mm) ---------- */
+
+function brutsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_BRUTS);
+  if (sh) return sh;
+  sh = sheet(SHEET_BRUTS, ['Section', 'Quantité en stock']);
+  PROFILES.forEach(pr => sh.appendRow([pr, 0]));
+  return sh;
+}
+
+// { section: quantité }
+function readBruts() {
+  const sh = brutsSheet();
+  const out = {};
+  PROFILES.forEach(pr => { out[pr] = 0; });
+  const last = sh.getLastRow();
+  if (last < 2) return out;
+  sh.getRange(2, 1, last - 1, 2).getValues().forEach(r => {
+    if (PROFILES.indexOf(String(r[0])) >= 0) out[String(r[0])] = Math.max(0, Math.round(Number(r[1]) || 0));
+  });
+  return out;
+}
+
+// Ajoute (ou retire si négatif) des bruts ; le stock ne descend jamais sous 0.
+function changeBruts(deltas, motif) {
+  const sh = brutsSheet();
+  const now = new Date();
+  Object.keys(deltas).forEach(pr => {
+    const d = Math.round(deltas[pr]);
+    if (!d || PROFILES.indexOf(pr) < 0) return;
+    const last = sh.getLastRow();
+    const names = last > 1 ? sh.getRange(2, 1, last - 1, 1).getValues().map(r => String(r[0])) : [];
+    let i = names.indexOf(pr);
+    if (i < 0) { sh.appendRow([pr, 0]); i = names.length; }
+    const cell = sh.getRange(i + 2, 2);
+    cell.setValue(Math.max(0, Math.round(Number(cell.getValue()) || 0) + d));
+    mouvementsSheet().appendRow([now, pr, d, motif]);
+  });
+}
+
+function addBruts(p) {
+  const qty = Math.round(Number(p.qty));
+  if (PROFILES.indexOf(p.profile) < 0 || !(qty > 0) || qty > 1000) return { error: 'Section ou quantité invalide (1 à 1000).' };
+  changeBruts({ [p.profile]: qty }, 'Ajout manuel');
+  return {};
+}
+
+/* ---------- Achat ---------- */
+
+function achatCheck(p) {
+  if (!ACHAT_MOT_DE_PASSE) return { error: 'Le mot de passe Achat n\'est pas encore réglé dans Code.gs.' };
+  const a = (p && p.achat) || {};
+  if (a.user !== ACHAT_IDENTIFIANT || a.password !== ACHAT_MOT_DE_PASSE) return { error: 'Identifiant ou mot de passe Achat incorrect.' };
+  return null;
+}
+
+function readAchats() {
+  const sh = achatsSheet();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  const n = Math.min(30, last - 1);
+  return sh.getRange(last - n + 1, 1, n, 5).getValues().reverse()
+    .map(r => ({ date: iso(r[0]), user: String(r[1]), ref: String(r[2]), profile: String(r[3]), qty: Number(r[4]) }));
+}
+
+function validateAchat(p) {
+  const lines = (p.lines || []).map(l => ({ profile: String(l.profile), qty: Math.round(Number(l.qty)) }))
+    .filter(l => l.qty > 0);
+  if (!lines.length) return { error: 'Aucune quantité à acheter.' };
+  if (lines.some(l => PROFILES.indexOf(l.profile) < 0 || l.qty > 1000)) return { error: 'Commande invalide.' };
+  const ref = String(p.ref || '').slice(0, 120);
+  const now = new Date();
+  const deltas = {};
+  lines.forEach(l => {
+    deltas[l.profile] = (deltas[l.profile] || 0) + l.qty;
+    achatsSheet().appendRow([now, ACHAT_IDENTIFIANT, ref, l.profile, l.qty]);
+  });
+  changeBruts(deltas, 'Achat' + (ref ? ' – ' + ref : ''));
+  return { achats: readAchats() };
+}
 
 function machinesSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -172,7 +266,8 @@ function readState() {
     settings: { barLength: s.barLength, kerf: s.kerf, minKeep: s.minKeep },
     chutes: readChutes(),
     history: readHistory(),
-    machines: readMachines()
+    machines: readMachines(),
+    bruts: readBruts()
   };
 }
 
@@ -222,6 +317,7 @@ function cut(p) {
   }
   historySheet().appendRow([now, p.profile, len, p.source === 'chute' ? 'Chute' : 'Goulotte neuve',
     sourceLength, sourceNum, remainder, kept ? 'Oui' : 'Non', keptNum]);
+  if (p.source !== 'chute') changeBruts({ [p.profile]: -1 }, 'Découpe ' + len + ' mm');
   return { remainder: remainder, kept: kept, keptNum: kept ? keptNum : null };
 }
 
@@ -305,6 +401,9 @@ function applyPlan(p) {
       c.b.source === 'chute' ? 'Chute' : 'Goulotte neuve', c.total, c.sourceNum, remainder, keep ? 'Oui' : 'Non', num]);
   });
   writeSettings(s);
+  const used = {};
+  checked.forEach(c => { if (c.b.source !== 'chute') used[c.b.profile] = (used[c.b.profile] || 0) - 1; });
+  changeBruts(used, 'Plan de découpe' + (p.ref ? ' – ' + String(p.ref).slice(0, 80) : ''));
   return { keptNums: kept };
 }
 

@@ -7,7 +7,8 @@ C'est un site **séparé** du site profilés : il a son propre tableau Google Sh
 ## Installation (environ 5 minutes)
 1. Aller sur https://sheets.new, nommer le tableau « Stock goulottes ».
 2. **Extensions → Apps Script**.
-3. `Code.gs` : tout effacer, coller [Code.gs](Code.gs), écrire le mot de passe dans `const MOT_DE_PASSE = '';`.
+3. `Code.gs` : tout effacer, coller [Code.gs](Code.gs), écrire le mot de passe atelier dans `const MOT_DE_PASSE = '';`
+   et le mot de passe de la rubrique Achat dans `const ACHAT_MOT_DE_PASSE = '';` (identifiant Achat : `Morgan`).
 4. **+ → HTML**, nommer le fichier `Index`, coller [Index.html](Index.html). **Enregistrer**.
 5. **Déployer → Nouveau déploiement → Application Web** ; *Exécuter en tant que* : Moi ; *Qui a accès* : Tout le monde.
    **Déployer** et autoriser (si « application non validée » : *Paramètres avancés → Accéder à… (non sécurisé)*).
@@ -21,6 +22,15 @@ C'est un site **séparé** du site profilés : il a son propre tableau Google Sh
 - **Découpe → Découpe sur mesure** : saisir section, longueur et quantité ligne par ligne.
 - Les listes des machines sont dans l'onglet **Machines** du tableau (Machine, Section, Longueur, Quantité ;
   la section s'écrit comme « Goulotte 40x60 »). Pour une nouvelle machine, ajouter des lignes avec son nom.
+
+## Achat et goulottes brutes
+- **Stock → Goulottes brutes** : nombre de bruts (2000 mm) par section ; « Ajouter des bruts » pour une entrée manuelle.
+- Chaque découpe dans une goulotte neuve (recherche ou plan validé) retire automatiquement un brut du stock.
+  Si les bruts ne suffisent pas pour un plan, une alerte l'indique.
+- **Achat** (identifiant `Morgan` + mot de passe Achat) : choisir les machines à fabriquer (− / +), « Calculer les bruts à acheter » :
+  les pièces sont placées d'abord dans les chutes, puis dans des goulottes neuves ; le besoin est comparé aux bruts en stock.
+  Les quantités sont modifiables ; « Valider l'achat » ajoute les bruts au stock.
+- Onglets du tableau : **Bruts** (stock), **Mouvements bruts** (chaque entrée/sortie), **Achats** (historique des achats).
 
 ## Vue 3D
 Le plan de découpe s'affiche en 3D (goulottes à la bonne section, pièces colorées) : glisser pour tourner,

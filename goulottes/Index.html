@@ -127,7 +127,7 @@
   /* ---------- Contenu ---------- */
   body { min-height: 100vh; display: flex; flex-direction: column; }
   main.wrap { padding-block: 40px 64px; flex: 1; width: 100%; }
-  .view { display: grid; gap: 40px; }
+  .view { display: grid; gap: 40px; grid-template-columns: minmax(0, 1fr); }
   .sectiontitle { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
   .sectiontitle h2 { margin: 0; font-size: 1.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; position: relative; padding-bottom: 10px; }
   .sectiontitle h2::after { content: ""; position: absolute; left: 0; bottom: 0; width: 42px; height: 3px; background: var(--yellow); border-radius: 2px; }
@@ -254,6 +254,26 @@
   .login h2 { margin: 0; font-size: 1.15rem; font-weight: 600; }
   .login .err { color: var(--ko); min-height: 1.3em; margin: 0; font-size: .9rem; }
 
+  /* Achat */
+  .lockcard { max-width: 440px; margin: 0 auto; display: grid; gap: 14px; text-align: left; }
+  .lockcard .lockico { width: 54px; height: 54px; border-radius: 16px; display: grid; place-items: center; background: #edf2fb; color: var(--navy); }
+  .lockcard .err { color: var(--ko); min-height: 1.3em; margin: 0; font-size: .9rem; }
+  .who { display: inline-flex; align-items: center; gap: 10px; font-size: .9rem; color: var(--muted); }
+  .who b { color: var(--ink); }
+  .orders { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .order { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #ffffff; transition: border-color .2s, box-shadow .2s; }
+  .order.on { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
+  .order img { width: 74px; height: 74px; object-fit: contain; filter: drop-shadow(0 6px 8px rgba(21,43,92,.2)); }
+  .order h3 { margin: 0 0 6px; font-size: 1.2rem; }
+  .needtable td input { width: 96px; text-align: right; font-weight: 700; }
+  .needtable .sec { display: flex; align-items: center; gap: 10px; }
+  .needtable .sec img { width: 54px; height: 40px; object-fit: contain; }
+  .needtable tfoot td { font-weight: 700; background: var(--bg-soft); }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.ko { background: var(--ko-bg); color: var(--ko); }
+  .alert { margin: 16px 0 0; padding: 14px 16px; border-radius: 12px; background: var(--warn-bg); color: var(--warn); border: 1px solid #f0d9a0; }
+  .alert b { color: var(--warn); }
+
   /* Vue 3D */
   .v3d { position: relative; height: 500px; border-radius: 16px; overflow: hidden; margin: -4px 0 22px;
     background: radial-gradient(120% 140% at 25% 10%, #3a78a8 0%, #24518a 40%, #1a3466 75%, #142a55 100%);
@@ -368,6 +388,7 @@
       <button type="button" role="tab" data-view="stock" aria-selected="false">Stock</button>
       <button type="button" role="tab" data-view="historique" aria-selected="false">Historique</button>
       <button type="button" role="tab" data-view="parametres" aria-selected="false">Paramètres</button>
+      <button type="button" role="tab" data-view="achat" aria-selected="false">Achat 🔒</button>
       <span class="navink" id="navInk"></span>
     </nav>
     <span class="status" id="status">Connexion…</span>
@@ -436,6 +457,21 @@
       <div class="card" style="margin-top:18px;padding:0;overflow:hidden" id="stock"></div>
     </section>
     <section>
+      <div class="sectiontitle"><h2>Goulottes brutes</h2><p class="muted" id="brutTotal"></p></div>
+      <div class="stats" id="bruts"></div>
+      <form id="brutForm" class="card formrow" style="margin-top:18px">
+        <div>
+          <label for="brutProfile">Section</label>
+          <select id="brutProfile"></select>
+        </div>
+        <div>
+          <label for="brutQty">Nombre de bruts</label>
+          <input id="brutQty" type="number" inputmode="numeric" min="1" step="1" value="1">
+        </div>
+        <button class="btn" type="submit">Ajouter des bruts</button>
+      </form>
+    </section>
+    <section>
       <div class="sectiontitle"><h2>Ajouter une chute existante</h2></div>
       <form id="addForm" class="card formrow">
         <div>
@@ -457,6 +493,44 @@
       <div class="sectiontitle"><h2>Dernières découpes</h2><p class="muted">100 dernières opérations</p></div>
       <div class="card" style="padding:0;overflow:hidden" id="history"></div>
     </section>
+  </div>
+
+  <!-- ACHAT -->
+  <div class="view" data-view="achat" hidden>
+    <section id="achatLock">
+      <form class="card lockcard" id="achatLoginForm">
+        <div class="lockico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+        <h2 style="margin:0">Accès réservé aux achats</h2>
+        <div><label for="achatUser">Identifiant</label><input id="achatUser" type="text" autocomplete="off"></div>
+        <div><label for="achatPass">Mot de passe</label><input id="achatPass" type="password" autocomplete="off"></div>
+        <p class="err" id="achatErr"></p>
+        <button class="btn big" type="submit">Déverrouiller</button>
+      </form>
+    </section>
+
+    <div id="achatMain" hidden style="display:grid;gap:40px;grid-template-columns:minmax(0,1fr)">
+      <section>
+        <div class="sectiontitle">
+          <h2>Commande de machines</h2>
+          <span class="who">Connecté : <b id="achatWho"></b> <button type="button" class="btn small ghost" id="achatLogout">Verrouiller</button></span>
+        </div>
+        <div class="card">
+          <div class="orders" id="orders"></div>
+          <div class="twocol" style="margin-top:18px">
+            <div>
+              <label for="achatRef">Référence de commande – facultatif</label>
+              <input id="achatRef" type="text" autocomplete="off">
+            </div>
+            <button type="button" class="btn big" id="achatCompute">Calculer les bruts à acheter</button>
+          </div>
+        </div>
+      </section>
+      <section id="achatOut" hidden></section>
+      <section>
+        <div class="sectiontitle"><h2>Derniers achats</h2></div>
+        <div class="card" style="padding:0;overflow:hidden" id="achatHist"></div>
+      </section>
+    </div>
   </div>
 
   <!-- PARAMÈTRES -->
@@ -511,12 +585,18 @@ const HERO = {
   decoupe: ['Plan de découpe optimisé', 'Pour une machine complète ou une liste sur mesure : les chutes du stock d\'abord, puis le moins de goulottes neuves possible.'],
   stock: ['Stock de chutes', 'Toutes les chutes de goulotte disponibles, par section, mises à jour en direct sur tous les postes.'],
   historique: ['Historique', 'Chaque découpe validée, avec son origine et le reste remis en stock.'],
+  achat: ['Achat de goulottes', 'Commande de machines : calcul des goulottes brutes à acheter selon les chutes et les bruts déjà en stock.'],
   parametres: ['Paramètres', 'Longueur des goulottes brutes, trait de scie et longueur minimale d\'une chute conservée.']
 };
 
 let chutes = [];
 let history = [];
 let machines = {};
+let bruts = {};
+let achat = null;
+const orderCount = {};
+let achatPlan = null;
+try { achat = JSON.parse(sessionStorage.getItem('goulottes-achat')); } catch (e) { achat = null; }
 let settings = { barLength: 2000, kerf: 5, minKeep: 100 };
 let profile = PROFILES[0];
 let stockTab = PROFILES[0];
@@ -1005,6 +1085,7 @@ function applyState(s) {
   history = s.history;
   settings = s.settings;
   machines = s.machines || {};
+  bruts = s.bruts || {};
   if (!chutes.some(c => c.id === armedDelete)) armedDelete = null;
   renderAll();
 }
@@ -1055,6 +1136,10 @@ function applyView(name) {
   window.scrollTo(0, 0);
   if (window.redrawNet) window.redrawNet();
   if (name === 'recherche') $('cutLength').focus();
+  if (name === 'achat') {
+    showAchat();
+    if (achat) achatServer('achatLogin').then(r => renderAchatHist(r.achats)).catch(() => { achat = null; showAchat(); });
+  }
 }
 
 /* ---------- Rendu ---------- */
@@ -1122,6 +1207,18 @@ function renderStock() {
     </table></div>`);
 }
 
+function renderBruts() {
+  setHTML($('bruts'), PROFILES.map(p => {
+    const n = bruts[p] || 0;
+    return `<div class="stat" style="--k:${PROFILES.indexOf(p)}">${ductSVG(p, 'duct-mini')}<span>Brut ${settings.barLength} mm</span><b>${short(p)}</b>
+      <span class="num">${n} en stock ${n ? '' : '<span class="pill ko">vide</span>'}</span></div>`;
+  }).join(''));
+  const total = PROFILES.reduce((s, p) => s + (bruts[p] || 0), 0);
+  $('brutTotal').textContent = `${total} brut(s) au total`;
+  const sel = $('brutProfile');
+  if (!sel.options.length) PROFILES.forEach(p => sel.add(new Option(short(p), p)));
+}
+
 function renderHistory() {
   if (!history.length) { setHTML($('history'), '<div class="empty" style="padding:22px 24px">Aucune découpe enregistrée.</div>'); return; }
   setHTML($('history'), `
@@ -1146,7 +1243,7 @@ function renderSettings() {
   $('setMin').value = settings.minKeep;
 }
 
-function renderAll() { renderProfiles(); renderMachines(); renderStock(); renderHistory(); renderSettings(); }
+function renderAll() { renderProfiles(); renderMachines(); renderStock(); renderBruts(); renderHistory(); renderSettings(); renderOrders(); }
 
 function sawBar(cut, total) {
   return `<div class="barwrap" style="--cut:calc(${(cut / total * 100).toFixed(2)}% - 1px)">${barDiagram([cut], total)}<span class="saw"></span></div>`;
@@ -1221,6 +1318,7 @@ function showNewBar(cut, noChute) {
   showResult(noChute ? 'ko' : 'warn', `
     <p class="verdict">${noChute ? 'NON – goulotte neuve' : 'Goulotte neuve'}</p>
     <p>${noChute ? `Aucune chute ${short(profile)} assez longue. ` : ''}Couper dans une goulotte ${short(profile)} neuve de <strong class="num">${settings.barLength} mm</strong>.</p>
+    <p>${(bruts[profile] || 0) > 0 ? `<span class="pill ok">${bruts[profile]} brut(s) ${short(profile)} en stock</span>` : `<span class="pill ko">Plus de brut ${short(profile)} en stock</span> prévenez les achats.`}</p>
     ${sawBar(cut, settings.barLength)}
     ${restLine(remainderOf([cut], settings.barLength))}
     <div class="actions">
@@ -1325,6 +1423,20 @@ function optimise(pieces) {
   return bars;
 }
 
+// Goulottes neuves nécessaires par section, comparées aux bruts en stock.
+function brutNeeds(bars) {
+  return PROFILES.map(p => {
+    const need = bars.filter(b => b.profile === p && b.source === 'barre').length;
+    return { profile: p, need, stock: bruts[p] || 0, missing: Math.max(0, need - (bruts[p] || 0)) };
+  }).filter(r => r.need > 0);
+}
+
+function brutAlert(bars) {
+  const miss = brutNeeds(bars).filter(r => r.missing > 0);
+  if (!miss.length) return '';
+  return `<div class="alert" style="margin:0 0 18px"><b>Bruts insuffisants :</b> ${miss.map(r => `${short(r.profile)} : ${r.need} nécessaire(s), ${r.stock} en stock, <b>il en manque ${r.missing}</b>`).join(' · ')}. Prévenez les achats.</div>`;
+}
+
 function summarise(bars) {
   let kept = 0, scrap = 0;
   bars.forEach(b => {
@@ -1362,6 +1474,7 @@ function renderPlan() {
         <div class="v3d-tip" id="v3dTip" hidden></div>
         <div class="v3d-foot"><span class="hint3d">Glisser pour tourner · molette pour zoomer · Maj + glisser pour déplacer · clic sur une pièce pour la retrouver</span></div>
       </div>
+      ${brutAlert(plan.bars)}
       <div class="stats">
         <div class="stat hl"><b class="num" data-count="${s.newBars}">${s.newBars}</b><span>goulottes neuves (${settings.barLength} mm)</span></div>
         <div class="stat"><b class="num" data-count="${s.used}">${s.used}</b><span>chutes du stock utilisées</span></div>
@@ -1477,6 +1590,112 @@ async function applyPlan(btn) {
   }
 }
 
+/* ---------- Achat ---------- */
+
+function renderOrders() {
+  const names = Object.keys(machines);
+  setHTML($('orders'), names.length ? names.map(n => {
+    const c = orderCount[n] || 0;
+    return `<div class="order${c ? ' on' : ''}">
+      <img src="${machinePhoto(n)}" alt="" draggable="false">
+      <div>
+        <h3>${esc(n)}</h3>
+        <div class="stepper" aria-label="Nombre de ${esc(n)} à commander">
+          <button type="button" data-ostep="-1" data-m="${esc(n)}" aria-label="Une de moins">−</button>
+          <output class="num">${c}</output>
+          <button type="button" data-ostep="1" data-m="${esc(n)}" aria-label="Une de plus">+</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty">Aucune machine : remplissez l\'onglet « Machines » du tableau.</div>');
+}
+
+function showAchat() {
+  const ok = !!achat;
+  $('achatLock').hidden = ok;
+  $('achatMain').hidden = !ok;
+  if (ok) $('achatWho').textContent = achat.user;
+  else setTimeout(() => $('achatUser').focus(), 50);
+}
+
+function renderAchatHist(list) {
+  if (!list || !list.length) { $('achatHist').innerHTML = '<div class="empty" style="padding:22px 24px">Aucun achat enregistré.</div>'; return; }
+  $('achatHist').innerHTML = `<div class="tablewrap"><table>
+    <thead><tr><th>Date</th><th>Acheteur</th><th>Référence</th><th>Section</th><th class="r">Bruts</th></tr></thead>
+    <tbody>${list.map(a => `<tr><td class="muted">${fmtDate(a.date)}</td><td>${esc(a.user)}</td><td>${esc(a.ref || '—')}</td><td>${esc(short(a.profile))}</td><td class="r num"><strong>+${a.qty}</strong></td></tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function achatServer(action, payload) {
+  return server(action, Object.assign({ achat }, payload || {}));
+}
+
+async function achatCompute() {
+  const chosen = Object.keys(orderCount).filter(n => orderCount[n] > 0 && machines[n]);
+  if (!chosen.length) { toast('Choisissez au moins une machine (bouton +).'); return; }
+  await refresh();
+  const pieces = [];
+  chosen.forEach(n => machines[n].forEach(r => {
+    for (let i = 0; i < r.qty * orderCount[n]; i++) pieces.push({ profile: r.profile, length: r.length });
+  }));
+  const bars = optimise(pieces);
+  const rows = brutNeeds(bars);
+  const used = bars.filter(b => b.source === 'chute').length;
+  const ref = $('achatRef').value.trim() || chosen.map(n => orderCount[n] > 1 ? `${n} × ${orderCount[n]}` : n).join(' + ');
+  achatPlan = { ref, rows };
+  const out = $('achatOut');
+  out.innerHTML = `
+    <div class="sectiontitle"><h2>Bruts à acheter</h2><p class="muted">${esc(ref)}</p></div>
+    <div class="card">
+      <div class="stats">
+        <div class="stat"><b class="num" data-count="${pieces.length}">${pieces.length}</b><span>pièces de goulotte</span></div>
+        <div class="stat"><b class="num" data-count="${used}">${used}</b><span>chutes du stock réutilisées</span></div>
+        <div class="stat"><b class="num" data-count="${rows.reduce((s, r) => s + r.need, 0)}">${rows.reduce((s, r) => s + r.need, 0)}</b><span>goulottes neuves nécessaires</span></div>
+        <div class="stat hl"><b class="num" id="buyTotal">${rows.reduce((s, r) => s + r.missing, 0)}</b><span>bruts à acheter</span></div>
+      </div>
+      ${rows.length ? `<div class="tablewrap needtable" style="margin-top:18px"><table>
+        <thead><tr><th>Section</th><th class="r">Nécessaires</th><th class="r">En stock</th><th class="r">À acheter</th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td><div class="sec">${ductSVG(r.profile)}<strong>${short(r.profile)}</strong></div></td>
+          <td class="r num">${r.need}</td>
+          <td class="r num">${r.stock}</td>
+          <td class="r"><input type="number" min="0" step="1" class="buy" data-p="${r.profile}" value="${r.missing}" aria-label="Bruts ${short(r.profile)} à acheter"></td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : '<p class="empty">Toutes les pièces tiennent dans les chutes du stock : aucun brut nécessaire.</p>'}
+      <p class="muted">Calcul : les pièces des machines sont placées d'abord dans les chutes du stock, puis dans le moins de goulottes neuves possible (même optimisation que le plan de découpe). Les quantités à acheter sont modifiables.</p>
+      <div class="actions">
+        <button type="button" class="btn big" id="achatValidate"${rows.length ? '' : ' disabled'}>Valider l'achat : ajouter au stock</button>
+      </div>
+    </div>`;
+  out.hidden = false;
+  countUp(out);
+  out.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
+
+async function achatValidate(btn) {
+  const lines = [...document.querySelectorAll('#achatOut input.buy')].map(i => ({ profile: i.dataset.p, qty: Math.max(0, Math.round(Number(i.value) || 0)) }))
+    .filter(l => l.qty > 0);
+  if (!lines.length) { toast('Toutes les quantités sont à 0 : rien à ajouter.'); return; }
+  if (!btn.dataset.armed) {
+    btn.dataset.armed = '1';
+    btn.classList.add('danger');
+    btn.textContent = `Confirmer : ajouter ${lines.reduce((s, l) => s + l.qty, 0)} brut(s) au stock`;
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const r = await achatServer('achatValidate', { lines, ref: achatPlan ? achatPlan.ref : '' });
+    renderAchatHist(r.achats);
+    $('achatOut').hidden = true;
+    Object.keys(orderCount).forEach(k => { orderCount[k] = 0; });
+    renderOrders();
+    toast(`Achat validé : ${lines.map(l => '+' + l.qty + ' ' + short(l.profile)).join(', ')} ajoutés aux bruts.`);
+  } catch (e) {
+    toast(e.message);
+    btn.disabled = false;
+  }
+}
+
 /* ---------- Stock et paramètres ---------- */
 
 async function addManual() {
@@ -1561,6 +1780,51 @@ $('addLine').addEventListener('click', () => {
   addLine({ profile: last ? last.querySelector('.lp').value : PROFILES[0], length: '', qty: 1 }).querySelector('.ll').focus();
 });
 $('computePlan').addEventListener('click', computePlan);
+$('orders').addEventListener('click', e => {
+  const b = e.target.closest('button[data-ostep]');
+  if (!b) return;
+  const n = b.dataset.m;
+  orderCount[n] = Math.min(50, Math.max(0, (orderCount[n] || 0) + Number(b.dataset.ostep)));
+  renderOrders();
+});
+$('achatCompute').addEventListener('click', achatCompute);
+$('achatOut').addEventListener('click', e => { if (e.target.id === 'achatValidate') achatValidate(e.target); });
+$('achatOut').addEventListener('input', e => {
+  if (!e.target.classList.contains('buy')) return;
+  const t = [...document.querySelectorAll('#achatOut input.buy')].reduce((s, i) => s + Math.max(0, Math.round(Number(i.value) || 0)), 0);
+  $('buyTotal').textContent = t;
+  const v = $('achatValidate');
+  if (v) { delete v.dataset.armed; v.classList.remove('danger'); v.textContent = 'Valider l\'achat : ajouter au stock'; }
+});
+$('achatLoginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const cand = { user: $('achatUser').value.trim(), password: $('achatPass').value };
+  $('achatErr').textContent = '';
+  try {
+    const r = await server('achatLogin', { achat: cand });
+    achat = cand;
+    try { sessionStorage.setItem('goulottes-achat', JSON.stringify(achat)); } catch (err) { /* rien */ }
+    $('achatPass').value = '';
+    renderAchatHist(r.achats);
+    showAchat();
+  } catch (err) { $('achatErr').textContent = err.message; }
+});
+$('achatLogout').addEventListener('click', () => {
+  achat = null;
+  try { sessionStorage.removeItem('goulottes-achat'); } catch (err) { /* rien */ }
+  $('achatOut').hidden = true;
+  showAchat();
+});
+$('brutForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const qty = Math.round(Number($('brutQty').value));
+  if (!(qty > 0)) { toast('Saisissez un nombre de bruts.'); return; }
+  try {
+    await server('addBrut', { profile: $('brutProfile').value, qty });
+    toast(`+${qty} brut(s) ${short($('brutProfile').value)} ajouté(s) au stock.`);
+    $('brutQty').value = 1;
+  } catch (err) { toast(err.message); }
+});
 $('planOut').addEventListener('click', e => {
   const f3 = e.target.closest('button[data-f3]');
   if (f3 && plan3d) {
