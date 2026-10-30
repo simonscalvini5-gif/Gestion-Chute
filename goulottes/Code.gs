@@ -28,6 +28,8 @@ const SHEET_MACHINES = 'Machines';
 const SHEET_BRUTS = 'Bruts';
 const SHEET_MOUVEMENTS = 'Mouvements bruts';
 const SHEET_ACHATS = 'Achats';
+const SHEET_PREVISIONS = 'Prévisions';
+const SHEET_LIVRAISONS = 'Livraisons';
 
 // Liste de découpe de chaque machine : [section, longueur, quantité].
 // Recopiée une seule fois dans l'onglet « Machines », que l'on modifie ensuite directement dans le tableau.
@@ -65,12 +67,18 @@ function api(action, payload, login) {
   if (!MOT_DE_PASSE) return { error: 'Le mot de passe n\'est pas encore réglé dans Code.gs.' };
   if (!login || login.user !== IDENTIFIANT || login.password !== MOT_DE_PASSE) return { error: 'auth' };
 
-  if (action === 'state') return { state: readState() };
+  if (action === 'state') {
+    // Les livraisons dont la semaine est arrivée entrent automatiquement dans le stock.
+    const l = LockService.getScriptLock();
+    if (l.tryLock(5000)) { try { processDeliveries(); } finally { l.releaseLock(); } }
+    return { state: readState() };
+  }
 
   // Une seule modification à la fois, même si plusieurs postes valident en même temps.
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) return { error: 'Le serveur est occupé, réessayez dans un instant.' };
   try {
+    processDeliveries();
     let result;
     if (action === 'cut') result = cut(payload);
     else if (action === 'add') result = addChute(payload);
@@ -79,7 +87,9 @@ function api(action, payload, login) {
     else if (action === 'applyPlan') result = applyPlan(payload);
     else if (action === 'pdf') result = makePdf(payload);
     else if (action === 'addBrut') result = addBruts(payload);
-    else if (action === 'achatLogin') result = achatCheck(payload) || { achats: readAchats() };
+    else if (action === 'achatLogin') result = achatCheck(payload) || { achats: readAchats(), planning: readPlanning() };
+    else if (action === 'planSave') result = achatCheck(payload) || savePlanning(payload);
+    else if (action === 'deliveryReceived') result = achatCheck(payload) || receiveDelivery(payload);
     else if (action === 'achatValidate') result = achatCheck(payload) || validateAchat(payload);
     else return { error: 'Action inconnue.' };
     SpreadsheetApp.flush();
@@ -296,7 +306,8 @@ function readState() {
     chutes: readChutes(),
     history: readHistory(),
     machines: readMachines(),
-    bruts: readBruts()
+    bruts: readBruts(),
+    livraisons: readDeliveries().filter(d => d.status === 'Prévu')
   };
 }
 
@@ -518,4 +529,121 @@ function makePdf(p) {
     try { file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW); } catch (e2) { /* partage refusé par le domaine */ }
   }
   return { url: file.getUrl() };
+}
+
+/* ---------- Planning annuel (prévisions de machines, livraisons de bruts) ---------- */
+
+const previsionsSheet = () => sheet(SHEET_PREVISIONS, ['Semaine', 'Machine', 'Quantité']);
+const livraisonsSheet = () => sheet(SHEET_LIVRAISONS, ['ID', 'Semaine', 'Section', 'Quantité', 'Statut', 'Reçue le']);
+
+// Semaine ISO « AAAA-Snn » (lundi au dimanche), format triable.
+function isoWeek(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y = t.getUTCFullYear();
+  const w = Math.ceil(((t - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7);
+  return y + '-W' + (w < 10 ? '0' : '') + w;
+}
+const validWeek = w => /^\d{4}-W\d{2}$/.test(String(w));
+
+function readPlanParams() {
+  const rows = settingsSheet().getDataRange().getValues().slice(1);
+  const map = {};
+  rows.forEach(r => { map[r[0]] = Number(r[1]); });
+  return {
+    lead: map.planLead >= 0 ? map.planLead : 2,
+    safety: map.planSafety >= 0 ? map.planSafety : SEUIL_ALERTE,
+    lot: map.planLot >= 1 ? map.planLot : 1
+  };
+}
+
+function writePlanParams(p) {
+  const sh = settingsSheet();
+  const last = sh.getLastRow();
+  const keys = last > 1 ? sh.getRange(2, 1, last - 1, 1).getValues().map(r => String(r[0])) : [];
+  [['planLead', p.lead], ['planSafety', p.safety], ['planLot', p.lot]].forEach(([k, v]) => {
+    const i = keys.indexOf(k);
+    if (i >= 0) sh.getRange(i + 2, 2).setValue(v);
+    else { sh.appendRow([k, v]); keys.push(k); }
+  });
+}
+
+function readForecasts() {
+  const sh = previsionsSheet();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, 3).getValues()
+    .map(r => ({ week: String(r[0]), machine: String(r[1]), qty: Math.round(Number(r[2]) || 0) }))
+    .filter(f => validWeek(f.week) && f.machine && f.qty > 0);
+}
+
+function readDeliveries() {
+  const sh = livraisonsSheet();
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, 6).getValues()
+    .map((r, i) => ({ row: i + 2, id: String(r[0]), week: String(r[1]), profile: String(r[2]), qty: Math.round(Number(r[3]) || 0), status: String(r[4]), received: iso(r[5]) }))
+    .filter(d => d.id && validWeek(d.week) && PROFILES.indexOf(d.profile) >= 0);
+}
+
+function readPlanning() {
+  return { forecasts: readForecasts(), deliveries: readDeliveries().map(d => { delete d.row; return d; }), params: readPlanParams(), today: isoWeek(new Date()) };
+}
+
+// Livraisons prévues dont la semaine est atteinte : ajout au stock de bruts.
+function processDeliveries() {
+  const now = isoWeek(new Date());
+  const due = readDeliveries().filter(d => d.status === 'Prévu' && d.week <= now && d.qty > 0);
+  if (!due.length) return;
+  const sh = livraisonsSheet();
+  due.forEach(d => {
+    sh.getRange(d.row, 5, 1, 2).setValues([['Reçu', new Date()]]);
+    changeBruts({ [d.profile]: d.qty }, 'Livraison prévue ' + d.week.replace('-W', ' S'));
+  });
+}
+
+// Réception anticipée d'une livraison prévue (bouton « Reçue » dans Achat).
+function receiveDelivery(p) {
+  const d = readDeliveries().find(x => x.id === String(p.id) && x.status === 'Prévu');
+  if (!d) return { error: 'Livraison introuvable ou déjà reçue.' };
+  livraisonsSheet().getRange(d.row, 5, 1, 2).setValues([['Reçu', new Date()]]);
+  changeBruts({ [d.profile]: d.qty }, 'Livraison reçue (prévue ' + d.week.replace('-W', ' S') + ')');
+  return { planning: readPlanning() };
+}
+
+// Remplace les prévisions de l'année et les livraisons encore prévues à partir de cette semaine.
+function savePlanning(p) {
+  const year = String(Math.round(Number(p.year)));
+  if (!/^\d{4}$/.test(year)) return { error: 'Année invalide.' };
+  const now = isoWeek(new Date());
+  const machines = readMachines();
+  const forecasts = (p.forecasts || []).map(f => ({ week: String(f.week), machine: String(f.machine), qty: Math.round(Number(f.qty)) }))
+    .filter(f => f.qty > 0);
+  if (forecasts.some(f => !validWeek(f.week) || f.week.slice(0, 4) !== year || !machines[f.machine] || f.qty > 100)) return { error: 'Prévisions invalides.' };
+  const deliveries = (p.deliveries || []).map(d => ({ week: String(d.week), profile: String(d.profile), qty: Math.round(Number(d.qty)) }))
+    .filter(d => d.qty > 0);
+  if (deliveries.some(d => !validWeek(d.week) || d.week.slice(0, 4) !== year || PROFILES.indexOf(d.profile) < 0 || d.qty > 5000)) return { error: 'Livraisons invalides.' };
+  const params = p.params || {};
+  const lead = Math.round(Number(params.lead)), safety = Math.round(Number(params.safety)), lot = Math.round(Number(params.lot));
+  if (!(lead >= 0 && lead <= 26) || !(safety >= 0 && safety <= 1000) || !(lot >= 1 && lot <= 1000)) return { error: 'Paramètres de planning invalides.' };
+  writePlanParams({ lead: lead, safety: safety, lot: lot });
+
+  // Prévisions : on réécrit l'onglet en gardant les autres années.
+  const fs = previsionsSheet();
+  const keep = readForecasts().filter(f => f.week.slice(0, 4) !== year);
+  const rows = keep.concat(forecasts).sort((a, b) => a.week < b.week ? -1 : a.week > b.week ? 1 : 0).map(f => [f.week, f.machine, f.qty]);
+  if (fs.getLastRow() > 1) fs.deleteRows(2, fs.getLastRow() - 1);
+  if (rows.length) fs.getRange(2, 1, rows.length, 3).setValues(rows);
+
+  // Livraisons : les reçues et les autres années sont conservées ; les prévues futures de l'année sont remplacées.
+  const ls = livraisonsSheet();
+  const kept = readDeliveries().filter(d => d.status !== 'Prévu' || d.week.slice(0, 4) !== year || d.week < now)
+    .map(d => [d.id, d.week, d.profile, d.qty, d.status, d.received ? new Date(d.received) : '']);
+  const fresh = deliveries.filter(d => d.week >= now).map(d => [Utilities.getUuid(), d.week, d.profile, d.qty, 'Prévu', '']);
+  const all = kept.concat(fresh).sort((a, b) => a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
+  if (ls.getLastRow() > 1) ls.deleteRows(2, ls.getLastRow() - 1);
+  if (all.length) ls.getRange(2, 1, all.length, 6).setValues(all);
+  processDeliveries();
+  return { planning: readPlanning() };
 }
