@@ -23,3 +23,9 @@ Ouvrir `index.html` dans un navigateur (aucune installation nécessaire).
 
 Les données sont enregistrées dans le navigateur (localStorage) du poste utilisé.
 Les boutons **Exporter / Importer** permettent de sauvegarder le stock dans un fichier JSON ou de le transférer sur un autre poste.
+
+## Version en ligne (stock partagé)
+
+`artifact/chutes-elcom.html` est la source de la page publiée sur claude.ai
+(https://claude.ai/artifact/AwHpzUbCYNeqbnrw1RnfQE), aux couleurs TDM by Insidix.
+Le stock y est commun à tous les postes et mis à jour en temps réel.
