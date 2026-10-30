@@ -5,6 +5,10 @@ et le logiciel répond **OUI** (avec la chute à prendre) ou **NON** (barre neuv
 Le trait de scie (5 mm) est pris en compte, le reste est remis en stock avec un numéro à écrire sur la pièce.
 Le stock est **partagé** entre tous les postes et protégé par **mot de passe**.
 
+## Site goulottes
+
+Voir **[goulottes/LISEZMOI.md](goulottes/LISEZMOI.md)** : site dédié aux goulottes (découpe par machine, plan PDF).
+
 ## Mettre le site en ligne gratuitement (recommandé)
 
 Voir **[google-apps-script/LISEZMOI.md](google-apps-script/LISEZMOI.md)** : hébergement gratuit par Google,
