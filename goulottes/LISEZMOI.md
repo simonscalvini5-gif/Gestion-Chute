@@ -22,5 +22,12 @@ C'est un site **séparé** du site profilés : il a son propre tableau Google Sh
 - Les listes des machines sont dans l'onglet **Machines** du tableau (Machine, Section, Longueur, Quantité ;
   la section s'écrit comme « Goulotte 40x60 »). Pour une nouvelle machine, ajouter des lignes avec son nom.
 
+## Vue 3D
+Le plan de découpe s'affiche en 3D (goulottes à la bonne section, pièces colorées) : glisser pour tourner,
+molette ou pincement pour zoomer, Maj + glisser pour déplacer, « Vue éclatée », filtre par section,
+clic sur une pièce pour la retrouver dans la liste. Une image 3D du plan est ajoutée en tête du PDF.
+La 3D utilise la bibliothèque Three.js chargée depuis cdnjs.cloudflare.com ; si un poste ne peut pas la charger,
+le plan reste affiché en 2D comme avant.
+
 ## Mise à jour du code plus tard
 Coller le nouveau code, enregistrer, puis **Déployer → Gérer les déploiements → crayon → Nouvelle version**. L'adresse ne change pas.

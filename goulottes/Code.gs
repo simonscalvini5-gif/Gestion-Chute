@@ -328,6 +328,10 @@ function makePdf(p) {
     + '<br>Trait de scie ' + s.kerf + ' mm · goulotte brute ' + s.barLength + ' mm</td></tr></table>';
 
   html += '<p><b>Résumé :</b> ' + esc(p.summary || '') + '</p>';
+  // Vue 3D du plan, envoyée par la page (image JPEG ou PNG uniquement).
+  if (typeof p.image === 'string' && /^data:image\/(jpeg|png);base64,[A-Za-z0-9+\/=]+$/.test(p.image) && p.image.length < 3000000) {
+    html += '<img src="' + p.image + '" style="width:100%;border-radius:6px;margin:4px 0 10px">';
+  }
 
   const profiles = PROFILES.filter(pr => bars.some(b => b.profile === pr));
   profiles.forEach(pr => {

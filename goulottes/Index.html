@@ -247,6 +247,36 @@
   .login h2 { margin: 0; font-size: 1.15rem; font-weight: 600; }
   .login .err { color: var(--ko); min-height: 1.3em; margin: 0; font-size: .9rem; }
 
+  /* Vue 3D */
+  .v3d { position: relative; height: 500px; border-radius: 16px; overflow: hidden; margin: -4px 0 22px;
+    background: radial-gradient(120% 140% at 25% 10%, #3a78a8 0%, #24518a 40%, #1a3466 75%, #142a55 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 18px 40px rgba(21, 43, 92, .18); }
+  .v3d .stage { position: absolute; inset: 0; }
+  .v3d canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  .v3d canvas.drag { cursor: grabbing; }
+  .v3d-tools { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; gap: 8px; flex-wrap: wrap; z-index: 2; pointer-events: none; }
+  .v3d-tools > * { pointer-events: auto; }
+  .v3d-tools .sp { flex: 1; pointer-events: none; }
+  .v3d-tools button {
+    font: 600 .9rem var(--font); color: #ffffff; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.3);
+    border-radius: 999px; padding: 7px 15px; cursor: pointer; backdrop-filter: blur(6px); transition: background .2s;
+  }
+  .v3d-tools button:hover { background: rgba(255,255,255,.2); }
+  .v3d-tools button[aria-pressed="true"] { background: #ffffff; color: var(--navy); border-color: #ffffff; }
+  .v3d-tip { position: absolute; z-index: 3; pointer-events: none; transform: translate(14px, 14px); background: rgba(255,255,255,.97);
+    color: var(--ink); border-radius: 12px; padding: 9px 13px; box-shadow: 0 10px 26px rgba(5,16,45,.35); display: grid; gap: 1px; border-left: 3px solid var(--yellow); }
+  .v3d-tip b { font: 700 1rem var(--font-head); } .v3d-tip span { font-size: .8rem; color: var(--muted); }
+  .v3d-foot { position: absolute; left: 16px; right: 16px; bottom: 12px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    color: rgba(255,255,255,.75); font-size: .8rem; pointer-events: none; z-index: 2; }
+  .v3d-foot .hint3d { background: rgba(10, 24, 54, .55); border-radius: 999px; padding: 4px 12px; backdrop-filter: blur(4px); }
+  .v3d-off { display: grid; place-items: center; height: 100%; color: rgba(255,255,255,.8); padding: 20px; text-align: center; }
+  .duct-big.has3d { height: 180px; border-radius: 14px; overflow: hidden; position: relative;
+    background: radial-gradient(120% 140% at 25% 10%, #3a78a8 0%, #24518a 45%, #172c58 100%); }
+  .duct-big.has3d svg { display: none; }
+  .duct-big.has3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  .planbar { scroll-margin-top: 90px; border-radius: 10px; transition: background .4s; }
+  .planbar.flash { background: #fff6d6; box-shadow: 0 0 0 8px #fff6d6; }
+
   @media (max-width: 900px) {
     .hero-photo { width: 70vw; right: -20vw; opacity: .35; }
     .sections { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -256,6 +286,11 @@
     .logo { height: 36px; }
   }
   @media (max-width: 600px) {
+    .v3d { height: 400px; }
+    .v3d-tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; right: 0; padding-right: 14px; }
+    .v3d-tools button { white-space: nowrap; }
+    .v3d-tools .sp { display: none; }
+    .v3d-foot .hint3d { display: none; }
     .sections button b { font-size: 1.15rem; }
     .hero .wrap { padding-block: 30px 34px; }
     .searchrow input { font-size: 1.2rem; }
@@ -455,6 +490,7 @@
   </form>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const PROFILES = ['Goulotte 40x40', 'Goulotte 40x60', 'Goulotte 40x80', 'Goulotte 60x60', 'Goulotte 60x80'];
 const LOGIN_KEY = 'goulottes-login';
@@ -476,6 +512,7 @@ let pending = null;
 let busy = false;
 let armedDelete = null;
 let plan = null;
+let plan3d = null;
 const machineCount = {};
 let login = null;
 try { login = JSON.parse(localStorage.getItem(LOGIN_KEY)); } catch (e) { login = null; }
@@ -560,6 +597,359 @@ function usedLength(pieces, total) {
 }
 const remainderOf = (pieces, total) => total - usedLength(pieces, total);
 const fitsIn = (pieces, len, total) => usedLength(pieces, total) + len <= total;
+
+/* ---------- Vue 3D des goulottes (Three.js) ---------- */
+// 1 mm = 0,01 unité. Chaque goulotte : fond, deux parois à fentes, couvercle ; une pièce = un tronçon.
+const Duct3D = (() => {
+  const S = 0.01, T = 0.022;
+  const COLORS = { piece: [0x1f3f84, 0x2f6db5], rest: 0x1f8a46, scrap: 0x8c96a5 };
+  const views = {};
+  let slotCanvas = null;
+
+  function wallTexture(lenMm) {
+    if (!slotCanvas) {
+      slotCanvas = document.createElement('canvas');
+      slotCanvas.width = 32; slotCanvas.height = 128;
+      const g = slotCanvas.getContext('2d');
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, 32, 128);
+      g.fillStyle = '#1b2230'; g.fillRect(12, 16, 9, 96);
+      g.fillStyle = 'rgba(255,255,255,.7)'; g.fillRect(21, 16, 2, 96);
+    }
+    const t = new THREE.CanvasTexture(slotCanvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.repeat.set(Math.max(1, Math.round(lenMm / 14)), 1);
+    t.anisotropy = 4;
+    return t;
+  }
+
+  function segment(wMm, hMm, lenMm, color) {
+    const g = new THREE.Group();
+    const w = wMm * S, h = hMm * S, l = lenMm * S;
+    const plain = new THREE.MeshStandardMaterial({ color, roughness: .5, metalness: .08 });
+    const wall = new THREE.MeshStandardMaterial({ color, roughness: .5, metalness: .08, map: wallTexture(lenMm) });
+    const lid = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).lerp(new THREE.Color(0xffffff), .12), roughness: .35, metalness: .05 });
+    const add = (geo, mat, x, y, z) => {
+      const m = new THREE.Mesh(geo, mat);
+      m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
+      g.add(m);
+    };
+    add(new THREE.BoxGeometry(l, T, w), plain, l / 2, T / 2, 0);
+    add(new THREE.BoxGeometry(l, h - 2 * T, T), wall, l / 2, h / 2, -(w / 2 - T / 2));
+    add(new THREE.BoxGeometry(l, h - 2 * T, T), wall, l / 2, h / 2, w / 2 - T / 2);
+    add(new THREE.BoxGeometry(l, T, w), lid, l / 2, h - T / 2, 0);
+    g.userData.mats = [plain, wall, lid];
+    return g;
+  }
+
+  function sprite(text, sub, big, left) {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 128;
+    const g = c.getContext('2d');
+    g.textAlign = left ? 'left' : 'right';
+    const tx = left ? 8 : 504;
+    g.font = `700 ${big ? 64 : 52}px "Barlow Semi Condensed", Barlow, sans-serif`;
+    g.fillStyle = big ? '#f2b705' : '#ffffff';
+    g.fillText(text, tx, sub ? 60 : 82);
+    if (sub) { g.font = '500 38px Barlow, sans-serif'; g.fillStyle = 'rgba(255,255,255,.72)'; g.fillText(sub, tx, 108); }
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    sp.center.set(left ? 0 : 1, .5);
+    sp.scale.set(big ? 2.6 : 1.9, big ? .65 : .48, 1);
+    return sp;
+  }
+
+  function buildBar(bar) {
+    const [wMm, hMm] = short(bar.profile).split('x').map(Number);
+    const grp = new THREE.Group();
+    const segs = [];
+    const rest = remainderOf(bar.pieces, bar.length);
+    let x = 0;
+    bar.pieces.forEach((len, k) => {
+      const s = segment(wMm, hMm, len, COLORS.piece[k % 2]);
+      s.userData.info = { kind: 'piece', len };
+      s.userData.base = x;
+      grp.add(s); segs.push(s);
+      x += len * S;
+      if (k < bar.pieces.length - 1 || rest > 0) x += settings.kerf * S;
+    });
+    if (rest > 0) {
+      const keep = rest >= settings.minKeep;
+      const s = segment(wMm, hMm, rest, keep ? COLORS.rest : COLORS.scrap);
+      s.userData.info = { kind: keep ? 'rest' : 'scrap', len: rest };
+      s.userData.base = x;
+      grp.add(s); segs.push(s);
+    }
+    grp.userData = { bar, segs, w: wMm * S, h: hMm * S, len: bar.length * S };
+    return grp;
+  }
+
+  function unmount(key) {
+    const v = views[key];
+    if (!v) return;
+    v.dead = true;
+    cancelAnimationFrame(v.raf);
+    if (v.ro) v.ro.disconnect();
+    if (v.io) v.io.disconnect();
+    v.scene.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+    });
+    v.renderer.dispose();
+    if (v.renderer.forceContextLoss) v.renderer.forceContextLoss();
+    v.renderer.domElement.remove();
+    delete views[key];
+  }
+
+  // bars : [{ profile, source, num, length, pieces }] ; opts : { mini, onPick(index), tip (élément infobulle) }
+  function mount(key, stage, bars, opts) {
+    unmount(key);
+    opts = opts || {};
+    if (typeof THREE === 'undefined' || !stage) return null;
+    let renderer;
+    try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch (e) { return null; }
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.95;
+    renderer.setClearColor(0x000000, 0);
+    stage.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(opts.mini ? 32 : 38, 1, 0.05, 400);
+    scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x0f1f40, .6));
+    scene.add(new THREE.AmbientLight(0xffffff, .12));
+    const sun = new THREE.DirectionalLight(0xfff6e8, 1.05);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0004;
+    scene.add(sun); scene.add(sun.target);
+    const rim = new THREE.DirectionalLight(0x9cc3ff, .35);
+    rim.position.set(-10, 6, -12);
+    scene.add(rim);
+
+    // Disposition : une rangée par goulotte, regroupées par section.
+    const root = new THREE.Group();
+    scene.add(root);
+    const items = [];
+    const groupsZ = {};
+    let z = 0;
+    PROFILES.forEach(pr => {
+      const list = bars.map((b, i) => [b, i]).filter(([b]) => b.profile === pr);
+      if (!list.length) return;
+      const startZ = z;
+      if (!opts.mini) {
+        const head = sprite('Goulotte ' + short(pr), null, true, true);
+        const [, hMm] = short(pr).split('x').map(Number);
+        head.position.set(0.05, hMm * S + 0.42, z + 0.2);
+        root.add(head);
+        z += 0.12;
+      }
+      list.forEach(([b, i]) => {
+        const g = buildBar(b);
+        g.userData.index = i;
+        g.position.z = z + g.userData.w / 2;
+        root.add(g);
+        items.push(g);
+        if (!opts.mini) {
+          const lab = sprite(b.source === 'chute' ? 'Chute #' + b.num : 'Neuve', b.length + ' mm');
+          lab.position.set(-0.3, g.userData.h / 2 + 0.05, g.position.z);
+          root.add(lab);
+          g.userData.label = lab;
+        }
+        z += g.userData.w + (opts.mini ? 0 : 0.42);
+      });
+      groupsZ[pr] = [startZ, z];
+      z += opts.mini ? 0 : 0.9;
+    });
+    const maxLen = Math.max(...items.map(g => g.userData.len)) + 0.6;
+    const spanZ = Math.max(z, 0.8);
+    root.position.set(-maxLen / 2 + 0.3, 0, -spanZ / 2);
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: .32 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    const grid = new THREE.GridHelper(Math.ceil(Math.max(maxLen, spanZ) / 2) * 2 + 8, Math.ceil(Math.max(maxLen, spanZ) / 2) * 4 + 16, 0x6f97d6, 0x3a5d9c);
+    grid.material.transparent = true; grid.material.opacity = .28;
+    grid.position.y = 0.001;
+    scene.add(grid);
+
+    const span = Math.max(maxLen, spanZ);
+    sun.position.set(span * 0.4, span * 0.9 + 4, span * 0.5);
+    Object.assign(sun.shadow.camera, { left: -span, right: span, top: span, bottom: -span, near: 0.5, far: span * 4 + 20 });
+    sun.shadow.camera.updateProjectionMatrix();
+
+    // Caméra en orbite autour d'une cible.
+    const home = opts.mini
+      ? { theta: -0.95, phi: 0.98, r: maxLen * 1.25 + 1.2, target: new THREE.Vector3(0, 0.15, 0) }
+      : { theta: -0.62, phi: 0.92, r: span * 1.05 + Math.max(0, spanZ - maxLen) * 0.6 + 3, target: new THREE.Vector3(0, 0.2, 0) };
+    const cam = { theta: home.theta, phi: home.phi, r: home.r * 1.35, target: home.target.clone() };
+    const goal = { theta: home.theta, phi: home.phi, r: home.r, target: home.target.clone() };
+    const state = { explode: opts.mini ? 1 : 0.12, explodeNow: 0, interacted: false, t0: performance.now(), hover: null, focus: null };
+
+    function placeCamera() {
+      const sp = Math.sin(cam.phi);
+      camera.position.set(cam.target.x + cam.r * sp * Math.sin(cam.theta), cam.target.y + cam.r * Math.cos(cam.phi), cam.target.z + cam.r * sp * Math.cos(cam.theta));
+      camera.lookAt(cam.target);
+    }
+
+    function resize() {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+
+    // Contrôles : glisser = tourner, Maj/clic droit = déplacer, molette ou pincement = zoom.
+    const el = renderer.domElement;
+    const pointers = new Map();
+    let downAt = null, pinch = 0;
+    el.addEventListener('contextmenu', e => e.preventDefault());
+    el.addEventListener('pointerdown', e => {
+      el.setPointerCapture(e.pointerId);
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      downAt = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2 };
+      state.interacted = true;
+      el.classList.add('drag');
+    });
+    el.addEventListener('pointermove', e => {
+      const prev = pointers.get(e.pointerId);
+      if (prev) {
+        const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.size === 2) {
+          const [a, b] = [...pointers.values()];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (pinch) goal.r = Math.min(home.r * 3, Math.max(0.8, goal.r * pinch / d));
+          pinch = d;
+        } else if (downAt && downAt.pan) {
+          const k = goal.r * 0.0016;
+          const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+          const fwd = new THREE.Vector3(Math.sin(cam.theta), 0, Math.cos(cam.theta));
+          goal.target.addScaledVector(right, -dx * k).addScaledVector(fwd, -dy * k);
+        } else {
+          goal.theta -= dx * 0.006;
+          goal.phi = Math.min(1.45, Math.max(0.2, goal.phi - dy * 0.005));
+        }
+        hideTip();
+        return;
+      }
+      hoverAt(e);
+    });
+    const up = e => {
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinch = 0;
+      el.classList.remove('drag');
+      if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 5 && state.hover && opts.onPick) {
+        opts.onPick(state.hover.parent.userData.index);
+      }
+      downAt = null;
+    };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener('pointerleave', () => { setHover(null); hideTip(); });
+    el.addEventListener('wheel', e => {
+      e.preventDefault();
+      state.interacted = true;
+      goal.r = Math.min(home.r * 3, Math.max(0.8, goal.r * (1 + e.deltaY * 0.0012)));
+    }, { passive: false });
+
+    // Survol : surbrillance du tronçon et infobulle.
+    const ray = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    function setHover(seg) {
+      if (state.hover === seg) return;
+      if (state.hover) state.hover.userData.mats.forEach(m => m.emissive.setHex(0x000000));
+      state.hover = seg;
+      if (seg) seg.userData.mats.forEach(m => m.emissive.setHex(0x333a22));
+      el.style.cursor = seg && opts.onPick ? 'pointer' : '';
+    }
+    function hideTip() { if (opts.tip) opts.tip.hidden = true; }
+    function hoverAt(e) {
+      const r = el.getBoundingClientRect();
+      mouse.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(mouse, camera);
+      const hit = ray.intersectObjects(items, true)[0];
+      let seg = hit ? hit.object : null;
+      while (seg && !(seg.userData && seg.userData.info)) seg = seg.parent;
+      setHover(seg);
+      if (!opts.tip) return;
+      if (!seg) { hideTip(); return; }
+      const info = seg.userData.info, bar = seg.parent.userData.bar;
+      const what = info.kind === 'piece' ? 'Pièce' : info.kind === 'rest' ? 'Reste remis en stock' : 'Déchet';
+      const from = bar.source === 'chute' ? 'chute #' + bar.num + ' (' + bar.length + ' mm)' : 'goulotte neuve ' + bar.length + ' mm';
+      opts.tip.innerHTML = `<b>${what} · ${info.len} mm</b><span>${short(bar.profile)} · ${from}</span>`;
+      opts.tip.style.left = (e.clientX - r.left) + 'px';
+      opts.tip.style.top = (e.clientY - r.top) + 'px';
+      opts.tip.hidden = false;
+    }
+
+    const view = { renderer, scene, dead: false, visible: true };
+    views[key] = view;
+    if ('ResizeObserver' in window) { view.ro = new ResizeObserver(resize); view.ro.observe(stage); }
+    if ('IntersectionObserver' in window) { view.io = new IntersectionObserver(en => { view.visible = en[0].isIntersecting; }); view.io.observe(stage); }
+    resize();
+
+    const ease = k => 1 - Math.pow(1 - Math.min(1, Math.max(0, k)), 3);
+    function frame(now) {
+      const t = (now - state.t0) / 1000;
+      // Arrivée : chaque goulotte se pose à son tour, puis les pièces se séparent.
+      items.forEach((g, k) => {
+        const p = reduceMotion ? 1 : ease((t - k * 0.05) / 0.7);
+        g.position.y = (1 - p) * 2.2;
+        g.visible = p > 0;
+      });
+      const target = reduceMotion || t > 0.6 + items.length * 0.05 ? state.explode : 0;
+      state.explodeNow += (target - state.explodeNow) * 0.08;
+      items.forEach(g => g.userData.segs.forEach((s, k) => { s.position.x = s.userData.base + k * state.explodeNow * 0.28; }));
+      if (!state.interacted && !reduceMotion) goal.theta += opts.mini ? 0.004 : 0.0012;
+      cam.theta += (goal.theta - cam.theta) * 0.12;
+      cam.phi += (goal.phi - cam.phi) * 0.12;
+      cam.r += (goal.r - cam.r) * 0.1;
+      cam.target.lerp(goal.target, 0.12);
+      placeCamera();
+      renderer.render(scene, camera);
+    }
+    function loop(now) {
+      if (view.dead) return;
+      if (view.visible && !document.hidden) frame(now);
+      view.raf = requestAnimationFrame(loop);
+    }
+    frame(performance.now());
+    view.raf = requestAnimationFrame(loop);
+
+    return {
+      setExplode(on) { state.explode = on ? 1 : 0.12; },
+      reset() { Object.assign(goal, { theta: home.theta, phi: home.phi, r: home.r, target: home.target.clone() }); state.focus = null; this.focus(null); },
+      focus(pr) {
+        state.focus = pr;
+        items.forEach(g => {
+          const on = !pr || g.userData.bar.profile === pr;
+          g.userData.segs.forEach(s => s.userData.mats.forEach(m => { m.transparent = !on; m.opacity = on ? 1 : 0.12; m.depthWrite = on; }));
+          if (g.userData.label) g.userData.label.material.opacity = on ? 1 : 0.15;
+        });
+        if (pr && groupsZ[pr]) {
+          const [a, b] = groupsZ[pr];
+          goal.target.set(0, 0.2, root.position.z + (a + b) / 2);
+          goal.r = Math.max(4, Math.min(home.r, (b - a) * 1.4 + maxLen * 0.75));
+          state.interacted = true;
+        }
+      },
+      // Image fixe (fond bleu) pour le PDF.
+      snapshot() {
+        renderer.setClearColor(0x1d3a6e, 1);
+        frame(performance.now() + 1e5);
+        const url = renderer.domElement.toDataURL('image/jpeg', 0.85);
+        renderer.setClearColor(0x000000, 0);
+        return url;
+      }
+    };
+  }
+
+  return { mount, unmount, available: () => typeof THREE !== 'undefined' };
+})();
 
 /* ---------- Serveur Google ---------- */
 
@@ -750,15 +1140,20 @@ function restLine(rest) {
   return `<p>Reste <strong class="num">${rest} mm</strong> ${rest >= settings.minKeep ? '→ remis en stock avec un numéro' : '→ déchet'}</p>`;
 }
 
-function showResult(cls, html) {
+function showResult(cls, html, mini) {
   const r = $('result');
   const icon = { ok: '✓', ko: '✕', warn: '!' }[cls];
   r.className = 'result ' + cls;
-  r.innerHTML = `<div class="duct-big">${ductSVG(profile)}</div><div>${html.replace('<p class="verdict">', `<p class="verdict"><span class="ico">${icon}</span>`)}</div>`;
+  Duct3D.unmount('mini');
+  r.innerHTML = `<div class="duct-big" id="mini3d">${ductSVG(profile)}</div><div>${html.replace('<p class="verdict">', `<p class="verdict"><span class="ico">${icon}</span>`)}</div>`;
   r.hidden = false;
+  if (mini && Duct3D.available()) {
+    const v = Duct3D.mount('mini', $('mini3d'), [{ profile, source: mini.source, num: mini.num, length: mini.total, pieces: [mini.cut] }], { mini: true });
+    if (v) $('mini3d').classList.add('has3d');
+  }
 }
 
-function clearResult() { pending = null; $('result').hidden = true; $('result').innerHTML = ''; }
+function clearResult() { Duct3D.unmount('mini'); pending = null; $('result').hidden = true; $('result').innerHTML = ''; }
 
 /* ---------- Recherche ---------- */
 
@@ -785,7 +1180,7 @@ async function search() {
         <button type="button" class="btn" data-act="confirm">Valider la découpe</button>
         <button type="button" class="btn ghost" data-act="newbar">Prendre une goulotte neuve</button>
         <button type="button" class="btn ghost" data-act="cancel">Annuler</button>
-      </div>`);
+      </div>`, { source: 'chute', num: best.num, total: best.length, cut });
   } else {
     showNewBar(cut, true);
   }
@@ -801,7 +1196,7 @@ function showNewBar(cut, noChute) {
     <div class="actions">
       <button type="button" class="btn" data-act="confirm">Valider la découpe</button>
       <button type="button" class="btn ghost" data-act="cancel">Annuler</button>
-    </div>`);
+    </div>`, { source: 'barre', total: settings.barLength, cut });
 }
 
 async function confirmCut() {
@@ -916,6 +1311,8 @@ function summarise(bars) {
 
 function renderPlan() {
   const out = $('planOut');
+  Duct3D.unmount('plan');
+  plan3d = null;
   if (!plan) { out.hidden = true; out.innerHTML = ''; return; }
   const s = summarise(plan.bars);
   let html = `
@@ -923,6 +1320,18 @@ function renderPlan() {
       <div class="legend"><span><i style="background:var(--piece)"></i>Pièces</span><span><i style="background:var(--kerf)"></i>Trait de scie</span><span><i style="background:var(--rest)"></i>Reste en stock</span><span><i style="background:var(--scrap)"></i>Déchet</span></div>
     </div>
     <div class="card">
+      <div class="v3d" id="v3d">
+        <div class="stage" id="v3dStage"></div>
+        <div class="v3d-tools">
+          <button type="button" data-f3="" aria-pressed="true">Toutes</button>
+          ${PROFILES.filter(pr => plan.bars.some(b => b.profile === pr)).map(pr => `<button type="button" data-f3="${pr}" aria-pressed="false">${short(pr)}</button>`).join('')}
+          <span class="sp"></span>
+          <button type="button" id="v3dExplode" aria-pressed="false">Vue éclatée</button>
+          <button type="button" id="v3dReset">Recentrer</button>
+        </div>
+        <div class="v3d-tip" id="v3dTip" hidden></div>
+        <div class="v3d-foot"><span class="hint3d">Glisser pour tourner · molette pour zoomer · Maj + glisser pour déplacer · clic sur une pièce pour la retrouver</span></div>
+      </div>
       <div class="stats">
         <div class="stat hl"><b class="num" data-count="${s.newBars}">${s.newBars}</b><span>goulottes neuves (${settings.barLength} mm)</span></div>
         <div class="stat"><b class="num" data-count="${s.used}">${s.used}</b><span>chutes du stock utilisées</span></div>
@@ -938,7 +1347,7 @@ function renderPlan() {
     list.forEach((b, i) => {
       const rest = remainderOf(b.pieces, b.length);
       const keep = rest > 0 && rest >= settings.minKeep;
-      html += `<div class="planbar">
+      html += `<div class="planbar" id="pb-${plan.bars.indexOf(b)}">
         <div class="head">
           <strong>${i + 1}. ${b.source === 'chute' ? 'Chute <span class="tag">#' + b.num + '</span> ' + b.length + ' mm' : 'Goulotte neuve ' + b.length + ' mm'}</strong>
           <span class="muted">${rest <= 0 ? 'aucun reste' : keep ? 'reste ' + rest + ' mm → stock' + (b.keptNum ? ' <span class="tag">#' + b.keptNum + '</span>' : '') : 'reste ' + rest + ' mm → déchet'}</span>
@@ -960,6 +1369,17 @@ function renderPlan() {
   out.innerHTML = html;
   out.hidden = false;
   countUp(out);
+  plan3d = Duct3D.mount('plan', $('v3dStage'), plan.bars, {
+    tip: $('v3dTip'),
+    onPick: i => {
+      const el = $('pb-' + i);
+      if (!el) return;
+      el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+      el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 1400);
+    }
+  });
+  if (!plan3d) $('v3dStage').innerHTML = '<div class="v3d-off">La vue 3D n\'est pas disponible sur ce poste : le plan reste détaillé ci-dessous.</div>';
 }
 
 async function computePlan() {
@@ -993,7 +1413,16 @@ async function makePdf(btn) {
   btn.disabled = true;
   btn.textContent = 'Création du PDF…';
   try {
-    const r = await server('pdf', planPayload());
+    const payload = planPayload();
+    let r;
+    try {
+      if (plan3d) payload.image = plan3d.snapshot();
+      r = await server('pdf', payload);
+    } catch (err) {
+      if (!payload.image) throw err;
+      delete payload.image;
+      r = await server('pdf', payload);
+    }
     $('pdfLink').innerHTML = `<p><a class="btn ghost" href="${esc(r.url)}" target="_blank" rel="noopener">Ouvrir le PDF</a> <span class="muted">Enregistré aussi dans Google Drive, dossier « Plans de découpe goulottes ».</span></p>`;
   } catch (e) { toast(e.message); }
   btn.disabled = false;
@@ -1103,6 +1532,20 @@ $('addLine').addEventListener('click', () => {
 });
 $('computePlan').addEventListener('click', computePlan);
 $('planOut').addEventListener('click', e => {
+  const f3 = e.target.closest('button[data-f3]');
+  if (f3 && plan3d) {
+    document.querySelectorAll('#v3d button[data-f3]').forEach(b => b.setAttribute('aria-pressed', String(b === f3)));
+    if (f3.dataset.f3) plan3d.focus(f3.dataset.f3); else plan3d.reset();
+  }
+  if (e.target.id === 'v3dExplode' && plan3d) {
+    const on = e.target.getAttribute('aria-pressed') !== 'true';
+    e.target.setAttribute('aria-pressed', String(on));
+    plan3d.setExplode(on);
+  }
+  if (e.target.id === 'v3dReset' && plan3d) {
+    plan3d.reset();
+    document.querySelectorAll('#v3d button[data-f3]').forEach(b => b.setAttribute('aria-pressed', String(!b.dataset.f3)));
+  }
   if (e.target.id === 'pdfBtn') makePdf(e.target);
   if (e.target.id === 'applyBtn') applyPlan(e.target);
   if (e.target.id === 'cancelPlan') {
