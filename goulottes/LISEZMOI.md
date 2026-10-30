@@ -23,19 +23,24 @@ C'est un site **séparé** du site profilés : il a son propre tableau Google Sh
 - Les listes des machines sont dans l'onglet **Machines** du tableau (Machine, Section, Longueur, Quantité ;
   la section s'écrit comme « Goulotte 40x60 »). Pour une nouvelle machine, ajouter des lignes avec son nom.
 
+## Espace méthode (accès réservé)
+Le menu principal ne contient que **Recherche**, **Découpe** et **Espace méthode 🔒**.
+L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) regroupe :
+**Commande immédiate**, **Planning annuel**, **Stock** (chutes et bruts), **Historique** et **Paramètres**.
+
 ## Achat et goulottes brutes
-- **Stock → Goulottes brutes** : nombre de bruts (2000 mm) par section ; « Ajouter des bruts » pour une entrée manuelle.
+- **Espace méthode → Stock → Goulottes brutes** : nombre de bruts (2000 mm) par section ; « Ajouter des bruts » pour une entrée manuelle.
 - Chaque découpe dans une goulotte neuve (recherche ou plan validé) retire automatiquement un brut du stock.
   Si les bruts ne suffisent pas pour un plan, une alerte l'indique.
-- **Achat** (identifiant `Morgan` + mot de passe Achat) : choisir les machines à fabriquer (− / +), « Calculer les bruts à acheter » :
+- **Espace méthode → Commande immédiate** (identifiant `Morgan` + mot de passe Achat) : choisir les machines à fabriquer (− / +), « Calculer les bruts à acheter » :
   les pièces sont placées d'abord dans les chutes, puis dans des goulottes neuves ; le besoin est comparé aux bruts en stock.
   Les quantités sont modifiables ; « Valider l'achat » ajoute les bruts au stock.
 - **Alerte e-mail** à simon.scalvini@insidix.com quand une section passe à 3 bruts ou moins, puis à 0 (rupture).
   Adresse et seuil réglables en haut de `Code.gs` (`ALERTE_EMAIL`, `SEUIL_ALERTE`). Lors de la mise à jour, Google
   demande l'autorisation « envoyer des e-mails en votre nom » : l'accepter. Les e-mails partent du compte qui a publié le site.
 - **Rupture** : sans brut d'une section, la découpe dans une goulotte neuve est refusée (recherche et plan),
-  comme dans la réalité ; ajouter les bruts reçus ou passer par Achat.
-- **Achat → Planning annuel** : une colonne par semaine (ISO) sur toute l'année, ◀ ▶ pour changer d'année.
+  comme dans la réalité ; ajouter les bruts reçus ou passer par l'Espace méthode.
+- **Espace méthode → Planning annuel** : une colonne par semaine (ISO) sur toute l'année, ◀ ▶ pour changer d'année.
   Saisir le nombre de machines prévues par semaine ; les bruts nécessaires sont calculés (même optimisation que le plan de découpe,
   sans compter les chutes). « Calculer automatiquement » propose les livraisons selon le délai fournisseur, le stock de sécurité
   et le lot d'achat ; elles restent modifiables. « Enregistrer le planning » les sauvegarde.

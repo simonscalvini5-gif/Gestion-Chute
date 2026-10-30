@@ -300,7 +300,7 @@
   .alert b { color: var(--warn); }
 
   /* Planning annuel */
-  .subtabs { display: inline-flex; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 14px; padding: 4px; gap: 2px; }
+  .subtabs { display: inline-flex; flex-wrap: wrap; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 14px; padding: 4px; gap: 2px; }
   .subtabs button { font: 600 .95rem var(--font); border: 0; background: none; color: var(--muted); padding: 9px 18px; border-radius: 10px; cursor: pointer; }
   .subtabs button[aria-pressed="true"] { background: #ffffff; color: var(--navy); box-shadow: 0 1px 4px rgba(27,47,94,.15); }
   .yearnav { display: inline-flex; align-items: center; gap: 6px; }
@@ -482,10 +482,7 @@
     <nav class="mainnav" id="nav" role="tablist">
       <button type="button" role="tab" data-view="recherche" aria-selected="true">Recherche</button>
       <button type="button" role="tab" data-view="decoupe" aria-selected="false">Découpe</button>
-      <button type="button" role="tab" data-view="stock" aria-selected="false">Stock</button>
-      <button type="button" role="tab" data-view="historique" aria-selected="false">Historique</button>
-      <button type="button" role="tab" data-view="parametres" aria-selected="false">Paramètres</button>
-      <button type="button" role="tab" data-view="achat" aria-selected="false">Achat 🔒</button>
+      <button type="button" role="tab" data-view="achat" aria-selected="false">Espace méthode 🔒</button>
       <span class="navink" id="navInk"></span>
     </nav>
     <span class="status" id="status">Connexion…</span>
@@ -547,58 +544,15 @@
   </div>
 
   <!-- STOCK -->
-  <div class="view" data-view="stock" hidden>
-    <section>
-      <div class="sectiontitle"><h2>Chutes en stock</h2><p class="muted" id="stockTotal"></p></div>
-      <div class="stats" id="tabs"></div>
-      <div class="card" style="margin-top:18px;padding:0;overflow:hidden" id="stock"></div>
-    </section>
-    <section>
-      <div class="sectiontitle"><h2>Goulottes brutes</h2><p class="muted" id="brutTotal"></p></div>
-      <div id="brutAlertBox"></div>
-      <div class="bstock" id="bruts"></div>
-      <form id="brutForm" class="card formrow" style="margin-top:18px">
-        <div>
-          <label for="brutProfile">Section</label>
-          <select id="brutProfile"></select>
-        </div>
-        <div>
-          <label for="brutQty">Nombre de bruts reçus</label>
-          <input id="brutQty" type="number" inputmode="numeric" min="1" step="1" value="1">
-        </div>
-        <button class="btn" type="submit">Ajouter des bruts</button>
-      </form>
-    </section>
-    <section>
-      <div class="sectiontitle"><h2>Ajouter une chute existante</h2></div>
-      <form id="addForm" class="card formrow">
-        <div>
-          <label for="addProfile">Section</label>
-          <select id="addProfile"></select>
-        </div>
-        <div>
-          <label for="addLength">Longueur (mm)</label>
-          <input id="addLength" type="number" inputmode="numeric" min="1" step="1">
-        </div>
-        <button class="btn" type="submit">Ajouter au stock</button>
-      </form>
-    </section>
-  </div>
 
   <!-- HISTORIQUE -->
-  <div class="view" data-view="historique" hidden>
-    <section>
-      <div class="sectiontitle"><h2>Dernières découpes</h2><p class="muted">100 dernières opérations</p></div>
-      <div class="card" style="padding:0;overflow:hidden" id="history"></div>
-    </section>
-  </div>
 
   <!-- ACHAT -->
   <div class="view" data-view="achat" hidden>
     <section id="achatLock">
       <form class="card lockcard" id="achatLoginForm">
         <div class="lockico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
-        <h2 style="margin:0">Accès réservé aux achats</h2>
+        <h2 style="margin:0">Espace méthode – accès réservé</h2>
         <div><label for="achatUser">Identifiant</label><input id="achatUser" type="text" autocomplete="off"></div>
         <div><label for="achatPass">Mot de passe</label><input id="achatPass" type="password" autocomplete="off"></div>
         <p class="err" id="achatErr"></p>
@@ -608,9 +562,12 @@
 
     <div id="achatMain" hidden style="display:grid;gap:40px;grid-template-columns:minmax(0,1fr)">
       <div class="sectiontitle" style="margin:0">
-        <div class="subtabs" id="achatTabs" role="group" aria-label="Rubrique Achat">
+        <div class="subtabs" id="achatTabs" role="group" aria-label="Espace méthode">
           <button type="button" data-at="now" aria-pressed="true">Commande immédiate</button>
           <button type="button" data-at="plan" aria-pressed="false">Planning annuel</button>
+          <button type="button" data-at="stock" aria-pressed="false">Stock</button>
+          <button type="button" data-at="hist" aria-pressed="false">Historique</button>
+          <button type="button" data-at="param" aria-pressed="false">Paramètres</button>
         </div>
         <span class="who">Connecté : <b id="achatWho"></b> <button type="button" class="btn small ghost" id="achatLogout">Verrouiller</button></span>
       </div>
@@ -661,24 +618,61 @@
         <div class="sectiontitle"><h2>Derniers achats</h2></div>
         <div class="card" style="padding:0;overflow:hidden" id="achatHist"></div>
       </section>
+      <section data-at="stock" hidden>
+        <div class="sectiontitle"><h2>Chutes en stock</h2><p class="muted" id="stockTotal"></p></div>
+        <div class="stats" id="tabs"></div>
+        <div class="card" style="margin-top:18px;padding:0;overflow:hidden" id="stock"></div>
+      </section>
+        <section data-at="stock" hidden>
+        <div class="sectiontitle"><h2>Goulottes brutes</h2><p class="muted" id="brutTotal"></p></div>
+        <div id="brutAlertBox"></div>
+        <div class="bstock" id="bruts"></div>
+        <form id="brutForm" class="card formrow" style="margin-top:18px">
+          <div>
+            <label for="brutProfile">Section</label>
+            <select id="brutProfile"></select>
+          </div>
+          <div>
+            <label for="brutQty">Nombre de bruts reçus</label>
+            <input id="brutQty" type="number" inputmode="numeric" min="1" step="1" value="1">
+          </div>
+          <button class="btn" type="submit">Ajouter des bruts</button>
+        </form>
+      </section>
+        <section data-at="stock" hidden>
+        <div class="sectiontitle"><h2>Ajouter une chute existante</h2></div>
+        <form id="addForm" class="card formrow">
+          <div>
+            <label for="addProfile">Section</label>
+            <select id="addProfile"></select>
+          </div>
+          <div>
+            <label for="addLength">Longueur (mm)</label>
+            <input id="addLength" type="number" inputmode="numeric" min="1" step="1">
+          </div>
+          <button class="btn" type="submit">Ajouter au stock</button>
+        </form>
+      </section>
+      <section data-at="hist" hidden>
+        <div class="sectiontitle"><h2>Dernières découpes</h2><p class="muted">100 dernières opérations</p></div>
+        <div class="card" style="padding:0;overflow:hidden" id="history"></div>
+      </section>
+      <section data-at="param" hidden>
+        <div class="sectiontitle"><h2>Paramètres de coupe</h2></div>
+        <form id="setForm" class="card">
+          <div class="settings">
+            <div><label for="setBar">Goulotte brute (mm)</label><input id="setBar" type="number" min="1"></div>
+            <div><label for="setKerf">Trait de scie (mm)</label><input id="setKerf" type="number" min="0" step="0.5"></div>
+            <div><label for="setMin">Chute mini gardée (mm)</label><input id="setMin" type="number" min="0"></div>
+          </div>
+          <button class="btn" type="submit">Enregistrer</button>
+          <p class="muted" style="margin-bottom:0">Un reste plus court que la « chute mini » est compté comme déchet et n'entre pas en stock. Ces réglages s'appliquent à tous les postes.</p>
+        </form>
+      </section>
     </div>
   </div>
 
   <!-- PARAMÈTRES -->
-  <div class="view" data-view="parametres" hidden>
-    <section>
-      <div class="sectiontitle"><h2>Paramètres de coupe</h2></div>
-      <form id="setForm" class="card">
-        <div class="settings">
-          <div><label for="setBar">Goulotte brute (mm)</label><input id="setBar" type="number" min="1"></div>
-          <div><label for="setKerf">Trait de scie (mm)</label><input id="setKerf" type="number" min="0" step="0.5"></div>
-          <div><label for="setMin">Chute mini gardée (mm)</label><input id="setMin" type="number" min="0"></div>
-        </div>
-        <button class="btn" type="submit">Enregistrer</button>
-        <p class="muted" style="margin-bottom:0">Un reste plus court que la « chute mini » est compté comme déchet et n'entre pas en stock. Ces réglages s'appliquent à tous les postes.</p>
-      </form>
-    </section>
-  </div>
 </main>
 
 <footer>
@@ -716,7 +710,7 @@ const HERO = {
   decoupe: ['Plan de découpe optimisé', 'Pour une machine complète ou une liste sur mesure : les chutes du stock d\'abord, puis le moins de goulottes neuves possible.'],
   stock: ['Stock de chutes', 'Toutes les chutes de goulotte disponibles, par section, mises à jour en direct sur tous les postes.'],
   historique: ['Historique', 'Chaque découpe validée, avec son origine et le reste remis en stock.'],
-  achat: ['Achat de goulottes', 'Commande de machines : calcul des goulottes brutes à acheter selon les chutes et les bruts déjà en stock.'],
+  achat: ['Espace méthode', 'Achats, planning annuel, stock de chutes et de bruts, historique et paramètres de coupe.'],
   parametres: ['Paramètres', 'Longueur des goulottes brutes, trait de scie et longueur minimale d\'une chute conservée.']
 };
 
@@ -1388,7 +1382,7 @@ function renderBruts() {
   const low = PROFILES.filter(p => brutState(bruts[p] || 0) === 'low');
   setHTML($('brutAlertBox'), out.length
     ? `<div class="stockalert"><b>Rupture :</b> ${out.map(short).join(', ')}. Aucune découpe dans une goulotte neuve n'est possible pour ${out.length > 1 ? 'ces sections' : 'cette section'}.</div>`
-    : low.length ? `<div class="stockalert low"><b>Stock bas :</b> ${low.map(p => `${short(p)} (${bruts[p]})`).join(', ')}. Pensez à commander (rubrique Achat) : une alerte e-mail part à chaque passage sous le seuil.</div>` : '');
+    : low.length ? `<div class="stockalert low"><b>Stock bas :</b> ${low.map(p => `${short(p)} (${bruts[p]})`).join(', ')}. Pensez à commander (Espace méthode) : une alerte e-mail part à chaque passage sous le seuil.</div>` : '');
   const sel = $('brutProfile');
   if (!sel.options.length) PROFILES.forEach(p => sel.add(new Option(short(p), p)));
 }
@@ -1493,7 +1487,7 @@ function showNewBar(cut, noChute) {
     showResult('ko', `
       <p class="verdict">NON – découpe impossible</p>
       <p>${noChute ? `Aucune chute ${short(profile)} assez longue, et ` : ''}plus aucune goulotte brute ${short(profile)} en stock.</p>
-      <div class="blocked">Rupture de bruts ${short(profile)} : ajoutez des bruts reçus (onglet Stock) ou passez commande (rubrique Achat).</div>
+      <div class="blocked">Rupture de bruts ${short(profile)} : ajoutez des bruts reçus (Espace méthode → Stock) ou passez commande (Espace méthode).</div>
       <div class="actions"><button type="button" class="btn ghost" data-act="cancel">Fermer</button></div>`);
     return;
   }
@@ -1501,7 +1495,7 @@ function showNewBar(cut, noChute) {
   showResult(noChute ? 'ko' : 'warn', `
     <p class="verdict">${noChute ? 'NON – goulotte neuve' : 'Goulotte neuve'}</p>
     <p>${noChute ? `Aucune chute ${short(profile)} assez longue. ` : ''}Couper dans une goulotte ${short(profile)} neuve de <strong class="num">${settings.barLength} mm</strong>.</p>
-    <p>${(bruts[profile] || 0) > 0 ? `<span class="pill ok">${bruts[profile]} brut(s) ${short(profile)} en stock</span>` : `<span class="pill ko">Plus de brut ${short(profile)} en stock</span> prévenez les achats.`}</p>
+    <p>${(bruts[profile] || 0) > 0 ? `<span class="pill ok">${bruts[profile]} brut(s) ${short(profile)} en stock</span>` : `<span class="pill ko">Plus de brut ${short(profile)} en stock</span> prévenez l'Espace méthode.`}</p>
     ${sawBar(cut, settings.barLength)}
     ${restLine(remainderOf([cut], settings.barLength))}
     <div class="actions">

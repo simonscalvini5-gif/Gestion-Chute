@@ -7,7 +7,7 @@
 const IDENTIFIANT = 'Production';
 const MOT_DE_PASSE = '';
 
-// Rubrique Achat : identifiants séparés. Écrivez aussi ce mot de passe entre les guillemets.
+// Espace méthode (achats, planning, stock, historique, paramètres) : identifiants séparés. Écrivez aussi ce mot de passe entre les guillemets.
 const ACHAT_IDENTIFIANT = 'Morgan';
 const ACHAT_MOT_DE_PASSE = '';
 
@@ -179,7 +179,7 @@ function sendAlert(alerts, motif) {
     + '<p style="font-size:18px;color:#1f3f84"><b>TDM by INSIDI<span style="color:#f2b705">X</span></b> – stock de goulottes brutes</p>'
     + '<p>' + (rupture ? 'Une ou plusieurs sections sont en <b style="color:#b42318">rupture</b>.' : 'Le stock de goulottes brutes passe sous le seuil de ' + SEUIL_ALERTE + '.') + '</p>'
     + '<ul>' + lines.map(l => '<li>' + esc(l) + '</li>').join('') + '</ul>'
-    + '<p style="color:#7a8291">Dernier mouvement : ' + esc(motif) + '. Pensez à passer commande (rubrique Achat).</p></div>';
+    + '<p style="color:#7a8291">Dernier mouvement : ' + esc(motif) + '. Pensez à passer commande (Espace méthode).</p></div>';
   try {
     MailApp.sendEmail({ to: ALERTE_EMAIL, subject: subject, body: lines.join('\n'), htmlBody: html });
   } catch (e) {
@@ -337,7 +337,7 @@ function cut(p) {
   let sourceLength = s.barLength;
   let sourceNum = '';
   if (p.source !== 'chute' && (readBruts()[p.profile] || 0) <= 0) {
-    return { error: 'Plus de goulotte brute ' + p.profile.replace('Goulotte ', '') + ' en stock : découpe impossible. Ajoutez des bruts (Stock) ou passez par la rubrique Achat.' };
+    return { error: 'Plus de goulotte brute ' + p.profile.replace('Goulotte ', '') + ' en stock : découpe impossible. Ajoutez des bruts ou passez commande (Espace méthode).' };
   }
   if (p.source === 'chute') {
     const row = findRow(String(p.chuteId));
