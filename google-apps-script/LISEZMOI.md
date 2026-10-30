@@ -29,12 +29,24 @@ Il faut seulement un compte Google. Durée : environ 5 minutes.
 Ouvrir l'adresse, se connecter une fois (identifiant `Production` + mot de passe) : le poste reste connecté.
 Astuce : l'ajouter en favori, ou « Ajouter à l'écran d'accueil » sur une tablette.
 
+## Utilisation
+
+- **Recherche** (accueil) : choisir la section, taper la longueur → OUI (numéro de la chute) ou NON (barre neuve).
+- **Plan de découpe** : saisir les pièces (section, longueur, quantité), « Calculer le plan optimisé ».
+  Le plan utilise d'abord les chutes du stock, puis le moins de barres neuves possible.
+  « Générer le PDF » crée le plan dans Google Drive (dossier « Plans de découpe Elcom ») et l'ouvre.
+  « Valider » une fois les coupes faites : le stock est mis à jour et les restes reçoivent leur numéro.
+- **Stock**, **Historique**, **Paramètres** : onglets en haut de la page.
+
 ## Bon à savoir
 - Le stock est lisible directement dans le tableau (onglets *Stock*, *Historique*, *Paramètres*).
   Évitez de modifier l'onglet *Stock* à la main pendant que l'atelier travaille ; utilisez plutôt le site.
 - « Tout le monde » signifie que la page de connexion est accessible avec le lien ; sans le mot de passe,
   rien n'est visible ni modifiable.
-- **Mettre à jour le code plus tard** : coller le nouveau code, enregistrer, puis
+- Les PDF sont créés dans le Google Drive du compte qui a publié le site, avec un lien en lecture seule.
+- **Mettre à jour le code plus tard** (y compris pour cette version avec plan de découpe) : coller le nouveau code, enregistrer, puis
   **Déployer → Gérer les déploiements → crayon → Version : Nouvelle version → Déployer**. L'adresse ne change pas.
+  Si Google redemande une autorisation (accès à Google Drive pour les PDF), l'accepter comme la première fois :
+  dans l'éditeur, choisir la fonction `doGet` puis **Exécuter**, et autoriser.
 - La page se met à jour toute seule toutes les 30 secondes, et toujours juste avant une recherche.
 - Si deux opérateurs prennent la même chute, le second est prévenu.

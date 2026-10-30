@@ -9,7 +9,8 @@ const MOT_DE_PASSE = '';
 
 const PROFILES = ['40X40', '80X40', '80X80'];
 const DEFAULT_SETTINGS = { barLength: 2000, kerf: 5, minKeep: 100 };
-const HISTORY_SHOWN = 20;
+const HISTORY_SHOWN = 100;
+const PDF_FOLDER = 'Plans de découpe Elcom';
 
 const SHEET_STOCK = 'Stock';
 const SHEET_HISTORY = 'Historique';
@@ -40,6 +41,8 @@ function api(action, payload, login) {
     else if (action === 'add') result = addChute(payload);
     else if (action === 'remove') result = removeChute(payload);
     else if (action === 'settings') result = saveSettings(payload);
+    else if (action === 'applyPlan') result = applyPlan(payload);
+    else if (action === 'pdf') result = makePdf(payload);
     else return { error: 'Action inconnue.' };
     SpreadsheetApp.flush();
     if (!result.error) result.state = readState();
@@ -106,7 +109,7 @@ function readHistory() {
   if (last < 2) return [];
   const n = Math.min(HISTORY_SHOWN, last - 1);
   return sh.getRange(last - n + 1, 1, n, 9).getValues().reverse().map(r => ({
-    date: iso(r[0]), profile: String(r[1]), cut: Number(r[2]),
+    date: iso(r[0]), profile: String(r[1]), cut: String(r[2]),
     source: r[3] === 'Chute' ? 'chute' : 'barre', sourceLength: Number(r[4]),
     sourceNum: r[5] === '' ? null : Number(r[5]), remainder: Number(r[6]),
     kept: r[7] === 'Oui', keptNum: r[8] === '' ? null : Number(r[8])
@@ -196,4 +199,129 @@ function saveSettings(p) {
   if (!(n.barLength > 0) || !(n.kerf >= 0) || !(n.minKeep >= 0)) return { error: 'Paramètres invalides.' };
   writeSettings({ barLength: n.barLength, kerf: n.kerf, minKeep: n.minKeep, nextNum: s.nextNum });
   return {};
+}
+
+/* ---------- Plan de découpe ---------- */
+
+// Position atteinte dans la barre après une série de coupes (trait de scie compris).
+function usedLength(pieces, total, kerf) {
+  let pos = 0;
+  pieces.forEach(len => { pos += len; if (pos < total) pos = Math.min(total, pos + kerf); });
+  return pos;
+}
+
+function applyPlan(p) {
+  const s = readSettings();
+  const bars = (p && p.bars) || [];
+  if (!bars.length) return { error: 'Le plan est vide.' };
+  const sh = stockSheet();
+
+  // Vérifie tout avant de modifier quoi que ce soit.
+  const checked = [];
+  const ids = bars.filter(b => b.source === 'chute').map(b => String(b.chuteId));
+  if (new Set(ids).size !== ids.length) return { error: 'Plan invalide.' };
+  for (let i = 0; i < bars.length; i++) {
+    const b = bars[i];
+    const pieces = (b.pieces || []).map(x => Math.round(Number(x)));
+    if (PROFILES.indexOf(b.profile) < 0 || !pieces.length || pieces.some(x => !(x > 0))) return { error: 'Plan invalide.' };
+    let total = s.barLength, sourceNum = '', row = null;
+    if (b.source === 'chute') {
+      row = findRow(String(b.chuteId));
+      if (!row) return { error: 'Une chute du plan vient d\'être utilisée par quelqu\'un d\'autre. Recalculez le plan.' };
+      const r = sh.getRange(row, 1, 1, 3).getValues()[0];
+      if (String(r[1]) !== b.profile) return { error: 'Plan invalide.' };
+      sourceNum = Number(r[0]);
+      total = Number(r[2]);
+    }
+    const sum = pieces.reduce((a, x) => a + x, 0) + s.kerf * (pieces.length - 1);
+    if (sum > total) return { error: 'Les paramètres ou le stock ont changé. Recalculez le plan.' };
+    checked.push({ b: b, pieces: pieces, total: total, sourceNum: sourceNum });
+  }
+
+  // Retire les chutes utilisées, ajoute les restes, écrit l'historique.
+  const now = new Date();
+  const kept = [];
+  checked.forEach(c => {
+    if (c.b.source === 'chute') sh.deleteRow(findRow(String(c.b.chuteId)));
+    const remainder = c.total - usedLength(c.pieces, c.total, s.kerf);
+    const keep = remainder > 0 && remainder >= s.minKeep;
+    let num = '';
+    if (keep) {
+      num = s.nextNum++;
+      sh.appendRow([num, c.b.profile, remainder, now, Utilities.getUuid()]);
+    }
+    kept.push(keep ? num : null);
+    historySheet().appendRow([now, c.b.profile, c.pieces.join(' + '),
+      c.b.source === 'chute' ? 'Chute' : 'Barre neuve', c.total, c.sourceNum, remainder, keep ? 'Oui' : 'Non', num]);
+  });
+  writeSettings(s);
+  return { keptNums: kept };
+}
+
+function esc(v) {
+  return String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// Crée le PDF du plan dans Google Drive et renvoie son lien.
+function makePdf(p) {
+  const s = readSettings();
+  const bars = p.bars || [];
+  const title = 'Plan de découpe' + (p.ref ? ' – ' + p.ref : '');
+  const date = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm');
+  const colors = ['#1f3f84', '#2f6db5', '#3d84c6', '#5a9bd5'];
+
+  let html = '<html><body style="font-family:Arial,sans-serif;font-size:10pt;color:#1f2a44">'
+    + '<table style="width:100%;border-bottom:3px solid #1f3f84;margin-bottom:10px"><tr>'
+    + '<td><span style="font-size:22pt;color:#1f3f84;font-weight:bold">TDM</span> '
+    + '<span style="font-size:9pt;color:#1f3f84">by <b>INSIDI<span style="color:#f2b705">X</span></b></span></td>'
+    + '<td style="text-align:right"><b style="font-size:14pt">' + esc(title) + '</b><br>' + esc(date)
+    + '<br>Trait de scie ' + s.kerf + ' mm · barre neuve ' + s.barLength + ' mm</td></tr></table>';
+
+  html += '<p><b>Résumé :</b> ' + esc(p.summary || '') + '</p>';
+
+  const profiles = PROFILES.filter(pr => bars.some(b => b.profile === pr));
+  profiles.forEach(pr => {
+    const list = bars.filter(b => b.profile === pr);
+    html += '<h2 style="font-size:13pt;color:#1f3f84;margin:16px 0 6px;border-bottom:1px solid #dde3ee">Profilé ' + pr
+      + ' – ' + list.length + ' barre(s)</h2>';
+    list.forEach((b, i) => {
+      const total = Number(b.length);
+      const remainder = total - usedLength(b.pieces, total, s.kerf);
+      const keep = remainder > 0 && remainder >= s.minKeep;
+      const source = b.source === 'chute' ? 'Chute n° ' + b.num + ' (' + total + ' mm)' : 'Barre neuve (' + total + ' mm)';
+      let cells = '';
+      b.pieces.forEach((len, k) => {
+        cells += '<td style="width:' + (len / total * 100).toFixed(2) + '%;background:' + colors[k % colors.length]
+          + ';color:#ffffff;text-align:center;font-size:8pt;padding:4px 0">' + len + '</td>';
+        if (k < b.pieces.length - 1 || remainder > 0) {
+          cells += '<td style="width:' + (Math.max(0.4, s.kerf / total * 100)).toFixed(2) + '%;background:#1f2a44"></td>';
+        }
+      });
+      if (remainder > 0) {
+        cells += '<td style="width:' + (remainder / total * 100).toFixed(2) + '%;background:' + (keep ? '#2e9b52' : '#a7b0bd')
+          + ';color:#ffffff;text-align:center;font-size:8pt">' + remainder + '</td>';
+      }
+      const restText = remainder <= 0 ? 'aucun reste'
+        : keep ? 'reste ' + remainder + ' mm → stock' + (b.keptNum ? ' (marquer n° ' + b.keptNum + ')' : '')
+        : 'reste ' + remainder + ' mm → déchet';
+      html += '<table style="width:100%;margin-top:8px"><tr><td style="width:70%"><b>' + (i + 1) + '. ' + esc(source) + '</b></td>'
+        + '<td style="text-align:right;color:#595e5c">' + esc(restText) + '</td></tr></table>'
+        + '<table style="width:100%;border:1px solid #1f2a44;border-collapse:collapse;height:18px"><tr>' + cells + '</tr></table>'
+        + '<p style="margin:2px 0 0;font-size:9pt">Coupes : ' + b.pieces.map(x => x + ' mm').join(' · ') + '</p>';
+    });
+  });
+
+  html += '<p style="margin-top:18px;font-size:8pt;color:#595e5c">Bleu : pièces · noir : trait de scie · vert : reste remis en stock · gris : déchet.</p>'
+    + '</body></html>';
+
+  const name = title.replace(/[\\/:*?"<>|]/g, '-') + ' ' + date.replace(/[\/:]/g, '-') + '.pdf';
+  const pdf = Utilities.newBlob(html, 'text/html', 'plan.html').getAs('application/pdf').setName(name);
+  const folders = DriveApp.getFoldersByName(PDF_FOLDER);
+  const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(PDF_FOLDER);
+  const file = folder.createFile(pdf);
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); }
+  catch (e) {
+    try { file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW); } catch (e2) { /* partage refusé par le domaine */ }
+  }
+  return { url: file.getUrl() };
 }
