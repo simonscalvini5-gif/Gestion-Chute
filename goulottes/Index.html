@@ -186,8 +186,31 @@
 
   /* Machines */
   .machines { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
-  .machine { display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden; }
-  .machine::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: linear-gradient(90deg, var(--navy), var(--sky)); }
+  .machine { display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden; padding: 0; }
+  .machine .body { display: flex; flex-direction: column; gap: 14px; padding: 4px 22px 22px; flex: 1; }
+  /* Vitrine : fond clair, sol, ombre et reflet sous la machine */
+  .mstage { position: relative; height: 230px; overflow: hidden; isolation: isolate;
+    background: radial-gradient(90% 70% at 50% 30%, #ffffff 0%, #eef3fa 55%, #e2e9f4 100%); }
+  .mstage::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 30%; z-index: -1;
+    background: linear-gradient(180deg, #dfe7f3 0%, #eef3fa 100%); border-top: 1px solid rgba(31, 63, 132, .08); }
+  .mstage .floor { position: absolute; left: 50%; bottom: 24%; width: 62%; height: 18px; transform: translate(-50%, 50%); z-index: -1;
+    background: radial-gradient(closest-side, rgba(21, 43, 92, .35), rgba(21, 43, 92, 0)); transition: transform .4s, opacity .4s; }
+  .mstage .mach { position: absolute; left: 50%; bottom: 24%; height: 60%; max-width: 80%; transform: translateX(-50%);
+    object-fit: contain; filter: drop-shadow(0 10px 10px rgba(21, 43, 92, .18)); transition: transform .45s cubic-bezier(.2,.8,.2,1); user-select: none; }
+  .mstage .mirror { position: absolute; left: 50%; top: 76%; height: 60%; max-width: 80%; transform: translateX(-50%) scaleY(-1); transform-origin: top;
+    opacity: .18; object-fit: contain; pointer-events: none; user-select: none;
+    -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,.9), rgba(0,0,0,0) 32%); mask-image: linear-gradient(to top, rgba(0,0,0,.9), rgba(0,0,0,0) 32%); }
+  .mstage .model { position: absolute; top: 14px; left: 14px; font: 700 .72rem var(--font); letter-spacing: .12em; text-transform: uppercase;
+    color: #ffffff; background: var(--navy); padding: 5px 11px; border-radius: 999px; box-shadow: 0 6px 14px rgba(31, 63, 132, .25); }
+  .mstage .live { position: absolute; top: 14px; right: 14px; font: 600 .72rem var(--font); color: var(--navy-deep); background: var(--yellow);
+    padding: 5px 11px; border-radius: 999px; display: none; }
+  .machine.current .mstage .live { display: block; }
+  .mstage::after { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.65) 50%, transparent 65%); transform: translateX(-120%); }
+  .machine.current { border-color: var(--yellow); box-shadow: 0 0 0 2px var(--yellow), var(--shadow); }
+  .machine .secs span { display: inline-flex; align-items: center; gap: 4px; }
+  .machine .secs img { width: 30px; height: 20px; object-fit: contain; }
+  .machine::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; z-index: 3; background: linear-gradient(90deg, var(--navy), var(--sky)); }
   .machine h3 { margin: 4px 0 0; font-size: 1.5rem; font-weight: 600; letter-spacing: -.01em; }
   .machine .meta { display: flex; gap: 18px; }
   .machine .meta b { display: block; color: var(--ink); font-size: 1.15rem; font-weight: 600; }
@@ -215,6 +238,8 @@
   button.stat[aria-pressed="true"] { border-color: var(--navy); box-shadow: inset 0 0 0 2px var(--navy); background: #ffffff; }
 
   .group { margin-top: 26px; }
+  .planhead { display: flex; align-items: center; gap: 16px; }
+  .planhead img { height: 64px; width: auto; object-fit: contain; filter: drop-shadow(0 8px 10px rgba(21, 43, 92, .2)); }
   .group h3 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 600; display: flex; gap: 10px; align-items: baseline; }
   .group h3 small { font-weight: 400; color: var(--muted); font-size: .85rem; }
   .planbar { padding: 14px 0; border-bottom: 1px solid var(--line); }
@@ -337,6 +362,9 @@
     .machine { transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s; }
     .machine:hover { transform: translateY(-5px); box-shadow: 0 18px 40px rgba(21, 43, 92, .14); }
     .machine:hover .duct svg { transform: translateX(8px); }
+    .machine:hover .mstage .mach { transform: translateX(-50%) translateY(-8px) scale(1.04); }
+    .machine:hover .mstage .floor { transform: translate(-50%, 50%) scale(.85); opacity: .7; }
+    .machine:hover .mstage::after { transform: translateX(120%); transition: transform .9s ease; }
   }
   @keyframes saw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
   @keyframes sawRun { 0% { left: 0; opacity: 1; } 75% { left: var(--cut); opacity: 1; } 100% { left: var(--cut); opacity: 0; } }
@@ -366,12 +394,6 @@
   .result .verdict { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .result .verdict .ico { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: #ffffff; font-size: 1.3rem; }
   .ok .ico { background: var(--ok); } .ko .ico { background: var(--ko); } .warn .ico { background: var(--warn); }
-  .machine .mphoto { height: 170px; margin: 2px -8px 0; display: block; border-radius: 12px;
-    background: radial-gradient(70% 80% at 50% 85%, #e9eef8 0%, rgba(233,238,248,0) 70%); }
-  .machine .mphoto { overflow: hidden; }
-  .machine .mphoto img { width: 100%; height: 100%; padding: 8px 12px 4px; object-fit: contain; filter: drop-shadow(0 14px 14px rgba(21, 43, 92, .22));
-    transition: transform .4s cubic-bezier(.2,.8,.2,1); user-select: none; }
-  .machine:hover .mphoto img { transform: translateY(-4px) scale(1.04); }
   .machine .duct svg { height: 100%; width: auto; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
   button.stat .duct-mini { float: right; width: 64px; height: auto; margin: -4px -6px 0 0; }
   @media (max-width: 600px) { .result { grid-template-columns: 1fr; } .result .duct-big { max-width: 160px; } }
@@ -1153,30 +1175,43 @@ function renderProfiles() {
   if (!sel.options.length) PROFILES.forEach(p => sel.add(new Option(short(p), p)));
 }
 
+const machineModel = name => /XL/i.test(name) ? 'COMPACT-3 XL' : 'COMPACT-3';
+
 function renderMachines() {
   const names = Object.keys(machines);
   if (!names.length) { setHTML($('machines'), '<div class="empty">Aucune machine : remplissez l\'onglet « Machines » du tableau.</div>'); return; }
+  const current = plan && plan.machine;
   setHTML($('machines'), names.map(n => {
     const list = machines[n];
     const pieces = list.reduce((s, r) => s + r.qty, 0);
     const meters = list.reduce((s, r) => s + r.qty * r.length, 0) / 1000;
-    const secs = [...new Set(list.map(r => short(r.profile)))];
+    const secs = PROFILES.filter(p => list.some(r => r.profile === p));
     const count = machineCount[n] || 1;
-    return `<article class="card machine" style="--k:${names.indexOf(n)}">
-      <div class="mphoto"><img src="${machinePhoto(n)}" alt="Machine ${esc(n)}" draggable="false"></div>
-      <h3>${esc(n)}</h3>
-      <div class="meta">
-        <div><b class="num">${pieces}</b><span>pièces</span></div>
-        <div><b class="num">${meters.toFixed(1)} m</b><span>de goulotte</span></div>
+    const photo = machinePhoto(n);
+    return `<article class="card machine${current === n ? ' current' : ''}" style="--k:${names.indexOf(n)}">
+      <div class="mstage">
+        <span class="model">${machineModel(n)}</span>
+        <span class="live">Plan affiché</span>
+        <span class="floor"></span>
+        <img class="mirror" src="${photo}" alt="" draggable="false">
+        <img class="mach" src="${photo}" alt="Machine ${esc(n)}" draggable="false">
       </div>
-      <div class="secs">${secs.map(s => `<span>${esc(s)}</span>`).join('')}</div>
-      <div class="go">
-        <div class="stepper" aria-label="Nombre de machines">
-          <button type="button" data-step="-1" data-m="${esc(n)}" aria-label="Une machine de moins">−</button>
-          <output class="num">${count}</output>
-          <button type="button" data-step="1" data-m="${esc(n)}" aria-label="Une machine de plus">+</button>
+      <div class="body">
+        <h3>${esc(n)}</h3>
+        <div class="meta">
+          <div><b class="num">${pieces}</b><span>pièces</span></div>
+          <div><b class="num">${meters.toFixed(1)} m</b><span>de goulotte</span></div>
+          <div><b class="num">${secs.length}</b><span>section${secs.length > 1 ? 's' : ''}</span></div>
         </div>
-        <button type="button" class="btn" data-go="${esc(n)}">Préparer</button>
+        <div class="secs">${secs.map(s => `<span>${ductSVG(s)}${esc(short(s))}</span>`).join('')}</div>
+        <div class="go">
+          <div class="stepper" aria-label="Nombre de machines">
+            <button type="button" data-step="-1" data-m="${esc(n)}" aria-label="Une machine de moins">−</button>
+            <output class="num">${count}</output>
+            <button type="button" data-step="1" data-m="${esc(n)}" aria-label="Une machine de plus">+</button>
+          </div>
+          <button type="button" class="btn" data-go="${esc(n)}">Préparer</button>
+        </div>
       </div>
     </article>`;
   }).join(''));
@@ -1455,10 +1490,10 @@ function renderPlan() {
   const out = $('planOut');
   Duct3D.unmount('plan');
   plan3d = null;
-  if (!plan) { out.hidden = true; out.innerHTML = ''; return; }
+  if (!plan) { out.hidden = true; out.innerHTML = ''; renderMachines(); return; }
   const s = summarise(plan.bars);
   let html = `
-    <div class="sectiontitle"><h2>Plan optimisé${plan.ref ? ' – ' + esc(plan.ref) : ''}</h2>
+    <div class="sectiontitle"><div class="planhead">${plan.machine ? `<img src="${machinePhoto(plan.machine)}" alt="">` : ''}<h2>Plan optimisé${plan.ref ? ' – ' + esc(plan.ref) : ''}</h2></div>
       <div class="legend"><span><i style="background:var(--piece)"></i>Pièces</span><span><i style="background:var(--kerf)"></i>Trait de scie</span><span><i style="background:var(--rest)"></i>Reste en stock</span><span><i style="background:var(--scrap)"></i>Déchet</span></div>
     </div>
     <div class="card">
@@ -1512,6 +1547,7 @@ function renderPlan() {
   out.innerHTML = html;
   out.hidden = false;
   countUp(out);
+  renderMachines();
   plan3d = Duct3D.mount('plan', $('v3dStage'), plan.bars, {
     tip: $('v3dTip'),
     onPick: i => {
@@ -1525,12 +1561,12 @@ function renderPlan() {
   if (!plan3d) $('v3dStage').innerHTML = '<div class="v3d-off">La vue 3D n\'est pas disponible sur ce poste : le plan reste détaillé ci-dessous.</div>';
 }
 
-async function computePlan() {
+async function computePlan(machine) {
   const { pieces, error } = readLines();
   if (error) { toast(error); return; }
   if (!pieces.length) { toast('Ajoutez au moins une pièce : section, longueur et quantité.'); return; }
   await refresh();
-  plan = { ref: $('planRef').value.trim(), bars: optimise(pieces), applied: false };
+  plan = { ref: $('planRef').value.trim(), bars: optimise(pieces), applied: false, machine: typeof machine === 'string' ? machine : null };
   renderPlan();
   $('planOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1540,7 +1576,7 @@ function prepareMachine(name) {
   $('lines').innerHTML = '';
   machines[name].forEach(r => addLine({ profile: r.profile, length: r.length, qty: r.qty * count }));
   $('planRef').value = count > 1 ? `${name} × ${count}` : name;
-  computePlan();
+  computePlan(name);
 }
 
 function planPayload() {
