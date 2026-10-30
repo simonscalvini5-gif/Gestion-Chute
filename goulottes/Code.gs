@@ -612,35 +612,28 @@ function receiveDelivery(p) {
   return { planning: readPlanning() };
 }
 
-// Remplace les prévisions de l'année et les livraisons encore prévues à partir de cette semaine.
+// Remplace tout le planning futur (semaine en cours comprise) : prévisions de machines et livraisons de bruts.
+// Les semaines passées et les livraisons déjà reçues sont conservées.
 function savePlanning(p) {
-  const year = String(Math.round(Number(p.year)));
-  if (!/^\d{4}$/.test(year)) return { error: 'Année invalide.' };
   const now = isoWeek(new Date());
   const machines = readMachines();
   const forecasts = (p.forecasts || []).map(f => ({ week: String(f.week), machine: String(f.machine), qty: Math.round(Number(f.qty)) }))
     .filter(f => f.qty > 0);
-  if (forecasts.some(f => !validWeek(f.week) || f.week.slice(0, 4) !== year || !machines[f.machine] || f.qty > 100)) return { error: 'Prévisions invalides.' };
+  if (forecasts.some(f => !validWeek(f.week) || f.week < now || !machines[f.machine] || f.qty > 100)) return { error: 'Planning invalide.' };
   const deliveries = (p.deliveries || []).map(d => ({ week: String(d.week), profile: String(d.profile), qty: Math.round(Number(d.qty)) }))
     .filter(d => d.qty > 0);
-  if (deliveries.some(d => !validWeek(d.week) || d.week.slice(0, 4) !== year || PROFILES.indexOf(d.profile) < 0 || d.qty > 5000)) return { error: 'Livraisons invalides.' };
-  const params = p.params || {};
-  const lead = Math.round(Number(params.lead)), safety = Math.round(Number(params.safety)), lot = Math.round(Number(params.lot));
-  if (!(lead >= 0 && lead <= 26) || !(safety >= 0 && safety <= 1000) || !(lot >= 1 && lot <= 1000)) return { error: 'Paramètres de planning invalides.' };
-  writePlanParams({ lead: lead, safety: safety, lot: lot });
+  if (deliveries.some(d => !validWeek(d.week) || d.week < now || PROFILES.indexOf(d.profile) < 0 || d.qty > 5000)) return { error: 'Livraisons invalides.' };
 
-  // Prévisions : on réécrit l'onglet en gardant les autres années.
   const fs = previsionsSheet();
-  const keep = readForecasts().filter(f => f.week.slice(0, 4) !== year);
-  const rows = keep.concat(forecasts).sort((a, b) => a.week < b.week ? -1 : a.week > b.week ? 1 : 0).map(f => [f.week, f.machine, f.qty]);
+  const rows = readForecasts().filter(f => f.week < now).concat(forecasts)
+    .sort((a, b) => a.week < b.week ? -1 : a.week > b.week ? 1 : 0).map(f => [f.week, f.machine, f.qty]);
   if (fs.getLastRow() > 1) fs.deleteRows(2, fs.getLastRow() - 1);
   if (rows.length) fs.getRange(2, 1, rows.length, 3).setValues(rows);
 
-  // Livraisons : les reçues et les autres années sont conservées ; les prévues futures de l'année sont remplacées.
   const ls = livraisonsSheet();
-  const kept = readDeliveries().filter(d => d.status !== 'Prévu' || d.week.slice(0, 4) !== year || d.week < now)
+  const kept = readDeliveries().filter(d => d.status !== 'Prévu' || d.week < now)
     .map(d => [d.id, d.week, d.profile, d.qty, d.status, d.received ? new Date(d.received) : '']);
-  const fresh = deliveries.filter(d => d.week >= now).map(d => [Utilities.getUuid(), d.week, d.profile, d.qty, 'Prévu', '']);
+  const fresh = deliveries.map(d => [Utilities.getUuid(), d.week, d.profile, d.qty, 'Prévu', '']);
   const all = kept.concat(fresh).sort((a, b) => a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
   if (ls.getLastRow() > 1) ls.deleteRows(2, ls.getLastRow() - 1);
   if (all.length) ls.getRange(2, 1, all.length, 6).setValues(all);

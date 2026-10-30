@@ -40,13 +40,12 @@ L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) reg
   demande l'autorisation « envoyer des e-mails en votre nom » : l'accepter. Les e-mails partent du compte qui a publié le site.
 - **Rupture** : sans brut d'une section, la découpe dans une goulotte neuve est refusée (recherche et plan),
   comme dans la réalité ; ajouter les bruts reçus ou passer par l'Espace méthode.
-- **Espace méthode → Planning annuel** : une colonne par semaine (ISO) sur toute l'année, ◀ ▶ pour changer d'année.
-  Saisir le nombre de machines prévues par semaine ; les bruts nécessaires sont calculés (même optimisation que le plan de découpe,
-  sans compter les chutes). « Calculer automatiquement » propose les livraisons selon le délai fournisseur, le stock de sécurité
-  et le lot d'achat ; elles restent modifiables. « Enregistrer le planning » les sauvegarde.
-  La liste « Commandes à passer » indique la semaine de commande (livraison – délai), avec « en retard » / « cette semaine ».
-- **Stock automatique** : chaque livraison prévue entre seule dans le stock de bruts quand sa semaine arrive
-  (au premier affichage du site cette semaine-là) ; « Reçue maintenant » l'ajoute tout de suite si elle arrive en avance.
+- **Espace méthode → Planning** : un tableau simple, une ligne par commande de machine.
+  Choisir la semaine de fabrication, la machine et la quantité, « Ajouter au planning » (enregistré tout de suite).
+  Chaque ligne affiche les bruts nécessaires, ce qu'il reste **à acheter** (le stock actuel couvre d'abord les commandes
+  les plus proches) et la semaine de livraison des bruts (une semaine avant la fabrication). « Supprimer » retire une ligne.
+- **Stock automatique** : les bruts à acheter entrent seuls dans le stock de bruts à leur semaine de livraison
+  (au premier affichage du site cette semaine-là).
 - Onglets du tableau : **Prévisions**, **Livraisons**, **Bruts** (stock), **Mouvements bruts** (chaque entrée/sortie), **Achats** (historique des achats).
 
 ## Vue 3D
