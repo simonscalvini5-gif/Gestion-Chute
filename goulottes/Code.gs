@@ -2,14 +2,15 @@
  * Goulottes – gestion des chutes et découpe par machine – TDM by Insidix
  * Hébergé gratuitement par Google Apps Script, stock enregistré dans ce Google Sheets.
  *
- * À RÉGLER : écrivez le mot de passe entre les guillemets ci-dessous, puis enregistrez.
+ * Les mots de passe ne sont pas dans ce fichier (il est public sur GitHub et redéployé automatiquement) :
+ * ils sont lus dans Apps Script → Paramètres du projet → Propriétés du script,
+ * clés MOT_DE_PASSE (atelier) et ACHAT_MOT_DE_PASSE (Espace méthode).
  */
 const IDENTIFIANT = 'Production';
-const MOT_DE_PASSE = '';
-
-// Espace méthode (achats, planning, stock, historique, paramètres) : identifiants séparés. Écrivez aussi ce mot de passe entre les guillemets.
 const ACHAT_IDENTIFIANT = 'Morgan';
-const ACHAT_MOT_DE_PASSE = '';
+const prop = k => PropertiesService.getScriptProperties().getProperty(k) || '';
+const MOT_DE_PASSE = prop('MOT_DE_PASSE');
+const ACHAT_MOT_DE_PASSE = prop('ACHAT_MOT_DE_PASSE');
 
 // Alerte e-mail quand il ne reste plus que SEUIL_ALERTE bruts (ou moins) d'une section.
 const ALERTE_EMAIL = 'simon.scalvini@insidix.com';
@@ -57,6 +58,18 @@ const MACHINES_INIT = {
 
 /* ---------- Page ---------- */
 
+// Appel depuis le site hébergé sur GitHub Pages : corps JSON { action, payload, login }.
+function doPost(e) {
+  let out;
+  try {
+    const req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    out = api(String(req.action || ''), req.payload || {}, req.login || null);
+  } catch (err) {
+    out = { error: 'Erreur serveur : ' + err.message };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('Goulottes – TDM by Insidix')
@@ -66,7 +79,7 @@ function doGet() {
 /* ---------- Appel unique depuis la page ---------- */
 
 function api(action, payload, login) {
-  if (!MOT_DE_PASSE) return { error: 'Le mot de passe n\'est pas encore réglé dans Code.gs.' };
+  if (!MOT_DE_PASSE) return { error: 'Le mot de passe n\'est pas encore réglé (Propriétés du script : MOT_DE_PASSE).' };
   if (!login || login.user !== IDENTIFIANT || login.password !== MOT_DE_PASSE) return { error: 'auth' };
 
   if (action === 'state') {
@@ -211,7 +224,7 @@ function addBruts(p) {
 /* ---------- Achat ---------- */
 
 function achatCheck(p) {
-  if (!ACHAT_MOT_DE_PASSE) return { error: 'Le mot de passe Achat n\'est pas encore réglé dans Code.gs.' };
+  if (!ACHAT_MOT_DE_PASSE) return { error: 'Le mot de passe de l\'Espace méthode n\'est pas encore réglé (Propriétés du script : ACHAT_MOT_DE_PASSE).' };
   const a = (p && p.achat) || {};
   if (a.user !== ACHAT_IDENTIFIANT || a.password !== ACHAT_MOT_DE_PASSE) return { error: 'Identifiant ou mot de passe Achat incorrect.' };
   return null;

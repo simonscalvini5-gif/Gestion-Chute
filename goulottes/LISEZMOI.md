@@ -4,11 +4,36 @@ Site dédié aux goulottes (40x40, 40x60, 40x80, 60x60, 60x80 ; brutes de 2000 m
 recherche de chute, découpe par machine (CP3XLV2, CP3V2, CP3V1…), découpe sur mesure, plan PDF, stock et historique.
 C'est un site **séparé** du site profilés : il a son propre tableau Google Sheets et donc son propre stock.
 
-## Installation (environ 5 minutes)
+## Hébergement GitHub Pages + mises à jour automatiques
+
+Le site est publié sur **GitHub Pages** : https://simonscalvini5-gif.github.io/Gestion-Chute/
+Les données restent dans le Google Sheets : la page appelle le script Google (adresse `/exec`, constante `API_URL` dans `Index.html`).
+À chaque modification poussée sur GitHub :
+- le workflow **Site goulottes (GitHub Pages)** republie la page (aucune action) ;
+- le workflow **Serveur goulottes (Google Apps Script)** envoie `Code.gs` + `Index.html` dans le script Google et met à jour
+  le déploiement existant (même adresse `/exec`), une fois les secrets ci-dessous créés.
+
+### Réglages à faire une seule fois
+1. **GitHub Pages** : dépôt → *Settings* → *Pages* → *Source* : **GitHub Actions**. Puis *Actions* → « Site goulottes » → *Run workflow*.
+2. **Mots de passe** (ils ne sont plus dans le code, public) : Apps Script → ⚙ *Paramètres du projet* → *Propriétés du script* :
+   `MOT_DE_PASSE` = mot de passe atelier, `ACHAT_MOT_DE_PASSE` = mot de passe Espace méthode.
+3. **Adresse du script** : l'URL `/exec` du déploiement *Application Web* (accès « Tout le monde ») est écrite dans `API_URL` (`Index.html`).
+4. **Mise à jour automatique du script Google** :
+   - activer l'API Apps Script : https://script.google.com/home/usersettings ;
+   - sur un ordinateur avec Node.js : `npx @google/clasp@2.4.2 login` (compte Google propriétaire du script), puis copier le contenu du fichier
+     `.clasprc.json` créé dans le dossier utilisateur (Windows : `C:\Users\<nom>\.clasprc.json`) ;
+   - dépôt GitHub → *Settings* → *Secrets and variables* → *Actions* → *New repository secret* :
+     `CLASPRC_JSON` (contenu du fichier), `SCRIPT_ID` (Apps Script → Paramètres du projet → ID du script),
+     `DEPLOYMENT_ID` (Déployer → Gérer les déploiements → ID de déploiement).
+
+Si une modification demande une nouvelle autorisation Google (nouveau service), il faut l'accepter une fois dans Apps Script.
+
+## Installation manuelle (sans GitHub Pages)
+ (environ 5 minutes)
 1. Aller sur https://sheets.new, nommer le tableau « Stock goulottes ».
 2. **Extensions → Apps Script**.
-3. `Code.gs` : tout effacer, coller [Code.gs](Code.gs), écrire le mot de passe atelier dans `const MOT_DE_PASSE = '';`
-   et le mot de passe de la rubrique Achat dans `const ACHAT_MOT_DE_PASSE = '';` (identifiant Achat : `Morgan`).
+3. `Code.gs` : tout effacer, coller [Code.gs](Code.gs). Mots de passe dans *Paramètres du projet → Propriétés du script*
+   (`MOT_DE_PASSE`, `ACHAT_MOT_DE_PASSE` ; identifiant Espace méthode : `Morgan`).
 4. **+ → HTML**, nommer le fichier `Index`, coller [Index.html](Index.html). **Enregistrer**.
 5. **Déployer → Nouveau déploiement → Application Web** ; *Exécuter en tant que* : Moi ; *Qui a accès* : Tout le monde.
    **Déployer** et autoriser (si « application non validée » : *Paramètres avancés → Accéder à… (non sécurisé)*).

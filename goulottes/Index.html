@@ -1191,18 +1191,27 @@ const Duct3D = (() => {
 
 /* ---------- Serveur Google ---------- */
 
+// Adresse /exec du script Google (déploiement « Application Web ») : utilisée quand le site est servi par GitHub Pages.
+const API_URL = '';
+
+// Appel du serveur Google : google.script.run dans Apps Script, sinon requête HTTP vers API_URL.
+function rawCall(action, payload) {
+  if (window.google && google.script && google.script.run) {
+    return new Promise((ok, ko) => google.script.run.withSuccessHandler(ok).withFailureHandler(ko).api(action, payload, login));
+  }
+  if (!API_URL) return Promise.resolve({ error: 'Adresse du serveur Google non configurée (API_URL).' });
+  // text/plain évite la requête préalable CORS, que Google n'accepte pas.
+  return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, payload, login }) })
+    .then(r => { if (!r.ok) throw new Error(); return r.json(); });
+}
+
 function server(action, payload) {
-  return new Promise((resolve, reject) => {
-    google.script.run
-      .withSuccessHandler(r => {
-        if (r && r.error === 'auth') { showLogin('Identifiant ou mot de passe incorrect.'); reject(new Error('Connexion requise.')); return; }
-        if (r && r.error) { reject(new Error(r.error)); return; }
-        if (r && r.state) applyState(r.state);
-        resolve(r || {});
-      })
-      .withFailureHandler(() => reject(new Error('Pas de connexion Internet. Réessayez dans un instant.')))
-      .api(action, payload || {}, login);
-  });
+  return rawCall(action, payload || {}).then(r => {
+    if (r && r.error === 'auth') { showLogin('Identifiant ou mot de passe incorrect.'); throw new Error('Connexion requise.'); }
+    if (r && r.error) throw new Error(r.error);
+    if (r && r.state) applyState(r.state);
+    return r || {};
+  }, () => { throw new Error('Pas de connexion Internet. Réessayez dans un instant.'); });
 }
 
 function applyState(s) {
