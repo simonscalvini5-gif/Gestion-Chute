@@ -9,7 +9,7 @@
 <link rel="apple-touch-icon" href="https://simonscalvini5-gif.github.io/Gestion-Chute/img/apple-touch-icon.png">
 <meta name="theme-color" content="#1f3f84">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow:wght@300;400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
 <style>
   /* Charte TDM by Insidix : en-tête blanc, bandeau bleu « réseau », bleu marine + touche jaune du X.
      Police : Barlow (texte) et Barlow Semi Condensed (titres, chiffres) — registre technique / industriel.
@@ -186,127 +186,86 @@
   .saw { position: absolute; top: 4px; bottom: 0; width: 3px; left: 0; background: var(--yellow); border-radius: 2px; opacity: 0;
     box-shadow: 0 0 12px 3px rgba(242,183,5,.75); pointer-events: none; }
   /* ---------- Découpe guidée (fenêtre) ---------- */
-  .gmodal { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; padding: 24px;
-    background: rgba(12, 24, 52, .4); backdrop-filter: blur(12px) saturate(1.1); -webkit-backdrop-filter: blur(12px) saturate(1.1); animation: gfade .25s ease; }
+  .gmodal { --gf: "Inter", system-ui, sans-serif; --k: var(--navy);
+    position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; padding: 24px;
+    background: rgba(12, 24, 52, .32); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); animation: gfade .25s ease; }
+  .gmodal[data-kind="cut"] { --k: #b07a00; }
+  .gmodal[data-kind="keep"], .gmodal[data-kind="done"] { --k: var(--ok); }
+  .gmodal[data-kind="scrap"] { --k: var(--ko); }
   body.guiding { overflow: hidden; }
   @keyframes gfade { from { opacity: 0; } }
-  @keyframes gpop { from { opacity: 0; transform: translateY(18px) scale(.97); } }
-  .gbox { width: min(1040px, 100%); max-height: min(760px, calc(100vh - 48px)); display: flex; flex-direction: column; background: #fff;
-    border-radius: 24px; overflow: hidden; box-shadow: 0 40px 100px rgba(8, 20, 48, .45); animation: gpop .35s cubic-bezier(.2,.8,.2,1); }
+  @keyframes gpop { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+  .gbox { width: min(980px, 100%); max-height: min(700px, calc(100vh - 48px)); display: flex; flex-direction: column; background: #fff;
+    border-radius: 22px; overflow: hidden; box-shadow: 0 30px 80px rgba(8, 20, 48, .3); animation: gpop .3s cubic-bezier(.2,.8,.2,1);
+    font-family: var(--gf); color: #111827; }
   .gbox:focus { outline: none; }
-  .ghead { display: flex; align-items: center; gap: 14px; padding: 14px 18px 12px 22px; }
-  .gmach img { height: 40px; width: auto; display: block; filter: drop-shadow(0 4px 6px rgba(21,43,92,.2)); }
-  .gtt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
-  .gtt b { font: 700 1.15rem var(--font-head); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .gtt span { font-size: .82rem; color: var(--muted); }
-  .gx { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--ink); font-size: 1rem; cursor: pointer; flex: none; }
-  .gx:hover { background: var(--bg-soft); }
-  .gprog { height: 4px; background: var(--bg-soft); flex: none; }
-  .gprog i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--yellow), #ffd34d); transition: width .4s cubic-bezier(.2,.8,.2,1); }
-  .gmain { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.25fr 1fr; }
-  .gstage { position: relative; background: radial-gradient(110% 85% at 50% 30%, #ffffff 0%, #eef2f8 45%, #d5dde9 100%); min-height: 380px; display: none; }
+  .ghead { display: flex; align-items: center; gap: 12px; padding: 18px 20px 16px 26px; }
+  .gtt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .gtt b { font: 600 1rem var(--gf); color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gtt span { font: 500 .8rem var(--gf); color: #6b7280; }
+  .gx { width: 36px; height: 36px; border-radius: 50%; border: 0; background: #f3f4f6; color: #374151; font-size: .9rem; cursor: pointer; flex: none; transition: background .2s; }
+  .gx:hover { background: #e5e7eb; }
+  .gprog { height: 2px; background: #f1f3f6; flex: none; }
+  .gprog i { display: block; height: 100%; width: 0; background: var(--k); transition: width .4s cubic-bezier(.2,.8,.2,1), background .3s; }
+  .gmain { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.3fr 1fr; }
+  .gstage { position: relative; background: radial-gradient(110% 85% at 50% 30%, #ffffff 0%, #f1f4f8 50%, #dde3ec 100%); min-height: 380px; display: none; }
   .gmodal.has3d .gstage { display: block; }
   .gmodal:not(.has3d) .gmain, .gmodal.flat .gmain { grid-template-columns: 1fr; }
   .gmodal.flat .gstage { display: none; }
   #g3d { position: absolute; inset: 0; }
   #g3d canvas { display: block; width: 100%; height: 100%; }
-  .gside { padding: 26px 28px 18px; overflow-y: auto; display: flex; flex-direction: column; }
-  .gmodal.flat .gside { padding: 30px 36px 20px; }
-  .gpanel.in > * { animation: gin .4s cubic-bezier(.2,.8,.2,1) both; }
-  .gpanel.in > :nth-child(2) { animation-delay: .04s; } .gpanel.in > :nth-child(3) { animation-delay: .08s; } .gpanel.in > :nth-child(n+4) { animation-delay: .12s; }
-  @keyframes gin { from { opacity: 0; transform: translateY(10px); } }
-  .gwhere { display: flex; align-items: center; gap: 10px; font-size: .85rem; color: var(--muted); margin-bottom: 14px; }
-  .gsec { font: 700 .8rem var(--font); color: var(--navy); background: #edf2fb; padding: 3px 10px; border-radius: 999px; }
-  .gk { display: inline-flex; align-items: center; gap: 8px; font: 700 .78rem var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--k, var(--sky)); }
-  .gk svg { width: 20px; height: 20px; }
-  .gmodal[data-kind="keep"], .gmodal[data-kind="done"] { --k: var(--ok); }
-  .gmodal[data-kind="scrap"] { --k: var(--ko); }
-  .gmodal[data-kind="cut"] { --k: #c48a00; }
-  .gtitle { font-size: clamp(1.7rem, 3.4vw, 2.4rem); line-height: 1.1; margin: 10px 0 10px; }
-  .gnum { font-size: clamp(3rem, 7vw, 4.6rem); color: var(--k, var(--ink)); letter-spacing: -.01em; }
-  .gnum small { font-size: .38em; color: var(--muted); font-weight: 600; }
-  .gtxt { font-size: 1.08rem; color: var(--ink); margin: 6px 0; }
-  .gsmall { font-size: .9rem; color: var(--muted); margin: 10px 0 6px; }
-  .gtrack { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
-  .gtrack li { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border-radius: 999px; background: var(--bg-soft); color: var(--ink); font-weight: 600; font-size: .9rem; border: 1px solid var(--line); transition: all .25s; }
-  .gtrack li span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #fff; font-size: .74rem; color: var(--muted); }
-  .gtrack li.done { opacity: .5; text-decoration: line-through; }
-  .gtrack li.done span { background: var(--ok); color: #fff; }
-  .gtrack li.cur { background: #fff6d6; border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(242,183,5,.25); }
-  .gtrack li.cur span { background: var(--yellow); color: var(--ink); }
-  .gtrack li.r.keep span { background: var(--ok-bg); color: var(--ok); } .gtrack li.r.scrap span { background: var(--ko-bg); color: var(--ko); }
-  .gtrack li.r.keep.cur { background: var(--ok-bg); border-color: var(--ok); box-shadow: 0 0 0 3px rgba(30,123,58,.18); }
-  .gtrack li.r.scrap.cur { background: var(--ko-bg); border-color: var(--ko); box-shadow: 0 0 0 3px rgba(180,35,24,.15); }
-  #g2d { margin-top: auto; padding-top: 18px; }
-  .gbar { height: 34px; margin: 0; animation: none !important; }
-  .gbar div { font-size: .74rem; transition: opacity .3s; }
-  .gbar .done { opacity: .25; }
-  .gbar .cur { box-shadow: inset 0 0 0 3px var(--yellow); }
-  .gstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
-  .gstats div { background: var(--bg-soft); border-radius: 14px; padding: 12px 14px; color: var(--muted); font-size: .85rem; }
-  .gstats b { display: block; font: 700 1.9rem var(--font-head); color: var(--ink); line-height: 1.1; }
-  .gprep, .gmark { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
-  .gprep { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-  .gprep li, .gmark li { display: flex; gap: 14px; align-items: center; padding: 12px 16px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: #fff; }
-  .gprep li div { display: flex; flex-direction: column; gap: 2px; font-size: .9rem; }
-  .gprep li b { font: 700 1.1rem var(--font-head); }
-  .gprep li em { font-style: normal; color: var(--ko); font-weight: 600; }
-  .gprep li.miss { border-color: #f2c4bf; background: var(--ko-bg); }
-  .gmark li { font-size: 1.05rem; }
-  .gmark li .num { margin-left: auto; font-weight: 600; }
-  .gphoto { width: 52px; height: 52px; object-fit: contain; flex: none; }
-  .tag.big { font-size: 1.05rem; padding: 3px 12px; }
-  .gbadge { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: #edf2fb; color: var(--navy); margin-bottom: 14px; }
-  .gbadge svg { width: 34px; height: 34px; }
-  .gbadge.ok { background: var(--ok-bg); color: var(--ok); animation: gcheck .6s cubic-bezier(.2,1.6,.4,1) both; }
-  @keyframes gcheck { from { transform: scale(.3); opacity: 0; } }
-  .gfoot { display: flex; justify-content: space-between; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--line); background: #fff; flex: none; }
-  .gfoot .btn { padding: 14px 22px; font-size: 1rem; }
-  .gfoot .gnext { flex: 1; max-width: 380px; font-weight: 700; }
-  .gmodal[data-kind="keep"] .gnext, .gmodal[data-kind="done"] .gnext { background: var(--ok); }
-  .gmodal[data-kind="scrap"] .gnext { background: var(--ko); }
-  .gmodal[data-kind="cut"] .gnext { background: var(--yellow); color: var(--ink); }
-  /* Finitions de la fenêtre */
-  .gbox { border: 1px solid rgba(255,255,255,.6); }
-  .ghead { background: linear-gradient(120deg, #0d1d3e 0%, #17305f 55%, #1f3f84 100%); padding: 16px 18px 14px 22px; position: relative; }
-  .ghead::after { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 140% at 85% 0%, rgba(242,183,5,.18), transparent 60%); pointer-events: none; }
-  .gmach img { filter: drop-shadow(0 6px 10px rgba(0,0,0,.35)); }
-  .gtt b { color: #fff; font: 700 1.3rem var(--font-head); letter-spacing: .01em; }
-  .gtt span { color: rgba(255,255,255,.62); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
-  .gx { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #fff; transition: background .2s, transform .2s; position: relative; z-index: 1; }
-  .gx:hover { background: rgba(255,255,255,.18); transform: rotate(90deg); }
-  .gprog { background: #0d1d3e; height: 5px; }
-  .gprog i { box-shadow: 0 0 14px 2px rgba(242,183,5,.75); border-radius: 0 4px 4px 0; }
-  .gstage::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-    background: radial-gradient(95% 85% at 50% 45%, transparent 60%, rgba(31,42,68,.16) 100%); }
-  .gstage #g3d canvas { cursor: default; }
-  .gchip { position: absolute; top: 16px; left: 16px; z-index: 1; font: 700 .74rem var(--font); letter-spacing: .18em; text-transform: uppercase;
-    color: var(--ink); background: var(--chip, #fff); padding: 6px 12px; border-radius: 999px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
-  .gchip:empty { display: none; }
-  .gmodal[data-kind="cut"] { --chip: var(--yellow); }
-  .gmodal[data-kind="keep"] .gchip { background: #3ddc84; } .gmodal[data-kind="scrap"] .gchip { background: #ff6b5e; color: #fff; }
-  .gside { background: linear-gradient(180deg, #ffffff 0%, #f7f9fd 100%); }
-  .gk { padding: 5px 12px 5px 8px; border-radius: 999px; background: var(--kbg, #e9f0fa); }
-  .gmodal[data-kind="cut"] { --kbg: #fff3cc; } .gmodal[data-kind="keep"], .gmodal[data-kind="done"] { --kbg: var(--ok-bg); } .gmodal[data-kind="scrap"] { --kbg: var(--ko-bg); }
-  .gtitle { font-family: var(--font-head); font-weight: 700; letter-spacing: -.005em; }
-  .gnum { font-weight: 800; line-height: .95; margin: 14px 0 12px; text-shadow: 0 10px 30px color-mix(in srgb, var(--k, #1f3f84) 25%, transparent); }
-  .gnum small { margin-left: 4px; }
-  .gtxt b { color: var(--k, var(--ink)); }
-  .gmodal[data-kind="cut"] .gtxt b { color: #8a6100; }
-  .gtrack li { font-family: var(--font-head); font-size: 1rem; }
-  .gstats div { background: linear-gradient(160deg, #f5f8fd, #eaf0fa); border: 1px solid #e3eaf6; }
-  .gstats b { font-size: 2.2rem; color: var(--navy); }
-  .gprep li, .gmark li { transition: transform .2s, box-shadow .2s; }
-  .gprep li:hover, .gmark li:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-  .gfoot { background: #fbfcfe; }
-  .gfoot .gnext { position: relative; overflow: hidden; letter-spacing: .01em; font-family: var(--font-head); font-size: 1.12rem;
-    box-shadow: 0 10px 24px color-mix(in srgb, var(--k, #1f3f84) 35%, transparent); transition: transform .15s, box-shadow .2s, background .2s; }
-  .gfoot .gnext:not(:disabled):hover { transform: translateY(-1px); }
-  .gfoot .gnext:not(:disabled)::before { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%;
-    background: linear-gradient(100deg, transparent, rgba(255,255,255,.45), transparent); transform: skewX(-20deg); animation: gshine 3.2s ease-in-out infinite 1s; }
-  @keyframes gshine { 0% { left: -60%; } 30%, 100% { left: 130%; } }
-  .gmodal[data-kind="cut"] .gnext:hover { background: #ffc61a; }
-  @media (prefers-reduced-motion: reduce) { .gfoot .gnext::before, .gpanel.in > * { animation: none !important; } }
+  .gside { padding: 34px 32px 24px; overflow-y: auto; display: flex; flex-direction: column; justify-content: center; }
+  .gmodal.flat .gside { padding: 34px 40px 26px; justify-content: flex-start; }
+  .gpanel.in > * { animation: gin .35s cubic-bezier(.2,.8,.2,1) both; }
+  .gpanel.in > :nth-child(2) { animation-delay: .04s; } .gpanel.in > :nth-child(n+3) { animation-delay: .08s; }
+  @keyframes gin { from { opacity: 0; transform: translateY(8px); } }
+  .gk { font: 600 .74rem var(--gf); letter-spacing: .12em; text-transform: uppercase; color: var(--k); }
+  .gtitle { font: 700 1.75rem/1.15 var(--gf); letter-spacing: -.02em; color: #111827; margin: 8px 0 6px; }
+  .gnum { font: 800 clamp(3.4rem, 7vw, 4.6rem)/1 var(--gf); letter-spacing: -.04em; color: var(--k); margin: 10px 0 10px; }
+  .gnum small { font-size: .3em; font-weight: 600; color: #9ca3af; letter-spacing: 0; margin-left: 6px; }
+  .gtxt { font: 400 1rem/1.5 var(--gf); color: #4b5563; margin: 4px 0; }
+  .gtag { display: inline-block; font: 700 .95em var(--gf); color: #111827; background: #fff4cc; padding: 0 8px; border-radius: 6px; }
+  .gwarn { font: 500 .92rem var(--gf); color: var(--ko); background: var(--ko-bg); padding: 10px 14px; border-radius: 12px; margin: 14px 0 0; }
+  .gtrack { list-style: none; padding: 0; margin: 22px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .gtrack li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 8px; border-radius: 10px; background: #f3f4f6; color: #374151;
+    font: 600 .88rem var(--gf); font-variant-numeric: tabular-nums; transition: all .25s; }
+  .gtrack li span { font-size: .72rem; color: #9ca3af; min-width: 12px; text-align: center; }
+  .gtrack li.done { opacity: .45; }
+  .gtrack li.done span { color: var(--ok); }
+  .gtrack li.cur { background: #111827; color: #fff; }
+  .gtrack li.cur span { color: var(--yellow); }
+  .gtrack li.r.keep span { color: var(--ok); } .gtrack li.r.scrap span { color: var(--ko); }
+  .gtrack li.r.keep.cur { background: var(--ok); } .gtrack li.r.scrap.cur { background: var(--ko); }
+  .gtrack li.r.cur span { color: #fff; }
+  .glist { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 4px; }
+  .glist li { display: flex; align-items: center; gap: 14px; padding: 10px 4px; border-bottom: 1px solid #f1f3f6; font: 400 .95rem var(--gf); color: #4b5563; }
+  .glist li:last-child { border-bottom: 0; }
+  .glist li b { font-weight: 600; color: #111827; min-width: 52px; }
+  .glist li .num { margin-left: auto; font-weight: 600; color: #111827; }
+  .glist li em { font-style: normal; color: var(--ko); font-weight: 600; }
+  .gphoto { width: 40px; height: 40px; object-fit: contain; flex: none; }
+  .gdone { width: 56px; height: 56px; border-radius: 50%; background: var(--ok-bg); display: grid; place-items: center; margin-bottom: 8px; animation: gcheck .5s cubic-bezier(.2,1.5,.4,1) both; }
+  .gdone svg { width: 28px; height: 28px; fill: none; stroke: var(--ok); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  @keyframes gcheck { from { transform: scale(.4); opacity: 0; } }
+  .gfoot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid #f1f3f6; flex: none; }
+  .gback { font: 500 .95rem var(--gf); color: #6b7280; background: none; border: 0; padding: 12px 10px; cursor: pointer; border-radius: 10px; }
+  .gback:hover:not(:disabled) { color: #111827; background: #f3f4f6; }
+  .gback:disabled { opacity: .3; cursor: default; }
+  .gnext { font: 600 1rem var(--gf); color: #fff; background: #111827; border: 0; border-radius: 12px; padding: 14px 34px; min-width: 180px; cursor: pointer;
+    transition: background .2s, transform .15s; }
+  .gnext:hover:not(:disabled) { background: var(--navy); }
+  .gnext:active:not(:disabled) { transform: translateY(1px); }
+  .gnext:disabled { opacity: .45; cursor: not-allowed; }
+  @media (max-width: 760px) {
+    .gmodal { padding: 10px; }
+    .gbox { max-height: calc(100vh - 20px); border-radius: 18px; }
+    .gmain { grid-template-columns: 1fr; overflow-y: auto; }
+    .gstage { min-height: 230px; }
+    .gside, .gmodal.flat .gside { padding: 20px 20px 14px; overflow: visible; }
+    .gnext { flex: 1; }
+    .resume { flex-wrap: wrap; }
+  }
+  @media (prefers-reduced-motion: reduce) { .gpanel.in > *, .gbox, .gmodal { animation: none !important; } }
   .resume { display: flex; align-items: center; gap: 20px; border-left: 4px solid var(--yellow); margin-bottom: 26px; }
   .resume .rimg img { height: 64px; width: auto; display: block; }
   .resume .rtxt { flex: 1; min-width: 0; }
@@ -546,16 +505,12 @@
   .tdmload::after { content: ""; position: absolute; left: 50%; top: 50%; width: 232px; height: 232px; transform: translate(-50%, -50%); border-radius: 50%;
     border: 1px dashed rgba(31,63,132,.22); animation: ringback 9s linear infinite; }
   @keyframes ringback { to { transform: translate(-50%, -50%) rotate(-1turn); } }
-  .tdmload svg { width: 200px; height: auto; overflow: visible; }
-  .tdmload .base { fill: none; stroke: rgba(31,63,132,.1); stroke-width: 7; stroke-linejoin: round; }
-  .tdmload .draw { fill: none; stroke: var(--navy); stroke-width: 7; stroke-linejoin: round; stroke-dasharray: 100; stroke-dashoffset: 100;
-    filter: drop-shadow(0 0 6px rgba(47,106,196,.55)); animation: tdmdraw 2.4s cubic-bezier(.65,0,.35,1) infinite; }
-  .tdmload .spark { fill: none; stroke: #9fd0ff; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 6 94;
-    filter: drop-shadow(0 0 4px #6fb6ff) drop-shadow(0 0 10px #2f6ac4); animation: tdmspark 1.2s linear infinite; }
-  .tdmload .draw:nth-child(5), .tdmload .spark:nth-child(8) { animation-delay: .12s; }
-  .tdmload .draw:nth-child(6), .tdmload .spark:nth-child(9) { animation-delay: .24s; }
-  @keyframes tdmdraw { 0% { stroke-dashoffset: 100; } 45%, 60% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -100; } }
-  @keyframes tdmspark { to { stroke-dashoffset: -100; } }
+  .tdmlogo { position: relative; width: 210px; overflow: hidden; animation: tdmbreath 2.4s ease-in-out infinite; }
+  .tdmlogo img { display: block; width: 100%; height: auto; }
+  .tdmlogo::after { content: ""; position: absolute; top: -20%; bottom: -20%; width: 35%; left: -40%; transform: skewX(-20deg);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.85), transparent); animation: tdmsweep 1.8s cubic-bezier(.6,0,.4,1) infinite; }
+  @keyframes tdmsweep { to { left: 120%; } }
+  @keyframes tdmbreath { 0%, 100% { opacity: .75; filter: drop-shadow(0 0 0 rgba(47,106,196,0)); } 50% { opacity: 1; filter: drop-shadow(0 0 10px rgba(47,106,196,.35)); } }
   .tdmload .scan { position: relative; width: 84px; height: 9px; border-radius: 6px; background: var(--yellow); overflow: hidden;
     box-shadow: 0 0 14px rgba(242,183,5,.7); animation: tdmbar 2.4s ease-in-out infinite; }
   .tdmload .scan::after { content: ""; position: absolute; top: 0; bottom: 0; width: 30%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
@@ -936,14 +891,13 @@
     <div id="guide" class="gmodal" role="dialog" aria-modal="true" aria-labelledby="gRef" hidden>
       <div class="gbox" tabindex="-1">
         <div class="ghead">
-          <div class="gmach" id="gMach"></div>
           <div class="gtt"><b id="gRef"></b><span id="gCount"></span></div>
           <button type="button" class="gx" id="gClose" data-g="close" aria-label="Fermer (la découpe reste en cours)">✕</button>
         </div>
         <div class="gprog"><i id="gProg"></i></div>
         <div class="gmain">
-          <div class="gstage"><div id="g3d"></div><span class="gchip" id="gChip"></span></div>
-          <div class="gside"><div class="gpanel" id="gPanel"></div><div id="g2d"></div></div>
+          <div class="gstage"><div id="g3d"></div></div>
+          <div class="gside"><div class="gpanel" id="gPanel"></div></div>
         </div>
         <div class="gfoot" id="gFoot"></div>
       </div>
@@ -958,7 +912,7 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<div class="loader" id="loader" role="status" aria-live="polite" aria-hidden="true" aria-label="Chargement"><div class="tdmload"><svg viewBox="0 0 300 90" aria-hidden="true"><path class="base" pathLength="100" d="M6 8H86M46 8V82"/><path class="base" pathLength="100" d="M108 8V82H146C176 82 192 66 192 45S176 8 146 8Z"/><path class="base" pathLength="100" d="M214 82V8L254 66L294 8V82"/><path class="draw" pathLength="100" d="M6 8H86M46 8V82"/><path class="draw" pathLength="100" d="M108 8V82H146C176 82 192 66 192 45S176 8 146 8Z"/><path class="draw" pathLength="100" d="M214 82V8L254 66L294 8V82"/><path class="spark" pathLength="100" d="M6 8H86M46 8V82"/><path class="spark" pathLength="100" d="M108 8V82H146C176 82 192 66 192 45S176 8 146 8Z"/><path class="spark" pathLength="100" d="M214 82V8L254 66L294 8V82"/></svg><div class="scan"></div><small>CHARGEMENT<i>.</i><i>.</i><i>.</i></small></div></div>
+<div class="loader" id="loader" role="status" aria-live="polite" aria-hidden="true" aria-label="Chargement"><div class="tdmload"><div class="tdmlogo"><img src="https://simonscalvini5-gif.github.io/Gestion-Chute/img/logo-tdm.png" alt="TDM by Insidix"></div><div class="scan"></div><small>CHARGEMENT<i>.</i><i>.</i><i>.</i></small></div></div>
 
 <div class="login" id="login" hidden>
   <form id="loginForm">
@@ -1164,16 +1118,16 @@ const Cut3D = (() => {
     sp.userData.set = (text, sub, color) => {
       const g = c.getContext('2d');
       g.clearRect(0, 0, 640, 200);
-      g.font = '700 88px "Barlow Semi Condensed", Barlow, sans-serif';
-      const tw = Math.max(g.measureText(text).width, sub ? (g.font = '600 40px Barlow, sans-serif', g.measureText(sub).width) : 0);
+      g.font = '800 84px Inter, sans-serif';
+      const tw = Math.max(g.measureText(text).width, sub ? (g.font = '600 38px Inter, sans-serif', g.measureText(sub).width) : 0);
       const bw = Math.min(632, tw + 64), bh = sub ? 176 : 124, bx = (640 - bw) / 2, by = 200 - bh - 8;
       g.fillStyle = 'rgba(10, 22, 48, .82)';
       g.beginPath(); g.moveTo(bx + 24, by); g.arcTo(bx + bw, by, bx + bw, by + bh, 24); g.arcTo(bx + bw, by + bh, bx, by + bh, 24); g.arcTo(bx, by + bh, bx, by, 24); g.arcTo(bx, by, bx + bw, by, 24); g.fill();
       g.fillStyle = color; g.fillRect(bx + 24, by + bh - 6, bw - 48, 6);
       g.textAlign = 'center';
-      g.font = '700 88px "Barlow Semi Condensed", Barlow, sans-serif'; g.fillStyle = color;
+      g.font = '800 84px Inter, sans-serif'; g.fillStyle = color;
       g.fillText(text, 320, by + 92);
-      if (sub) { g.font = '600 40px Barlow, sans-serif'; g.fillStyle = 'rgba(255,255,255,.8)'; g.fillText(sub, 320, by + 146); }
+      if (sub) { g.font = '600 38px Inter, sans-serif'; g.fillStyle = 'rgba(255,255,255,.8)'; g.fillText(sub, 320, by + 146); }
       tex.needsUpdate = true;
     };
     return sp;
@@ -1250,11 +1204,11 @@ const Cut3D = (() => {
       blade = box(0.018, h + 0.2, w + 0.25, new THREE.MeshStandardMaterial({ color: 0xf4f6f9, metalness: .95, roughness: .15 }));
       head.add(blade);
       lever = new THREE.Group();
-      lever.position.set(0.12, H, 0);
+      lever.position.set(0, H, -D / 2 + 0.06);
       const LL = Math.min(5, Math.max(2.6, L * 0.22));
       const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, LL, 16), steel); rod.position.y = LL / 2; rod.castShadow = true;
       const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, LL * 0.2, 20), red); grip.position.y = LL * 0.92; grip.castShadow = true;
-      const hubM = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, D * 0.6, 20), steel); hubM.rotation.x = Math.PI / 2;
+      const hubM = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.34, 20), steel); hubM.rotation.z = Math.PI / 2;
       lever.add(rod, grip, hubM);
       head.add(lever);
       tool.add(head);
@@ -1440,7 +1394,7 @@ const Cut3D = (() => {
         // Le levier s'abaisse, la lame traverse la goulotte, puis remonte.
         const c = (t % 2.8) / 2.8;
         const p = reduceMotion ? .3 : c < .2 ? 0 : c < .5 ? Math.sin((c - .2) / .3 * Math.PI / 2) : c < .62 ? 1 : c < .9 ? Math.cos((c - .62) / .28 * Math.PI / 2) : 0;
-        lever.rotation.z = -(0.12 + p * 1.1);
+        lever.rotation.x = 0.12 + p * 1.2;
         blade.position.y = st.h + 0.45 - p * (st.h + 0.12);
         laserMat.opacity = .45 + .45 * pulse;
       }
@@ -1943,13 +1897,6 @@ const Guide = (() => {
     return out;
   }
 
-  const ICON = {
-    take: '<svg viewBox="0 0 24 24"><path d="M3 9h18v6H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 9V6h10v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
-    cut: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2"/></svg>',
-    keep: '<svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    scrap: '<svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'
-  };
-
   // Liste des pièces de la goulotte en cours : faites, en cours, à venir, puis le reste.
   function track(b, j, mode) {
     const rest = remainderOf(b.pieces, b.length);
@@ -1961,57 +1908,37 @@ const Guide = (() => {
     return `<ul class="gtrack num">${chips}${r}</ul>`;
   }
 
-  function bar2d(b, j, mode) {
-    const total = b.length, rest = remainderOf(b.pieces, total), pct = v => (v / total * 100) + '%';
-    let h = '';
-    b.pieces.forEach((len, i) => {
-      const st = mode === 'cut' ? (i < j ? ' done' : i === j ? ' cur' : '') : mode === 'take' ? '' : ' done';
-      h += `<div class="piece${i % 2 ? ' alt' : ''}${st}" style="width:${pct(len)}">${len}</div>`;
-      if (i < b.pieces.length - 1 || rest > 0) h += `<div class="kerf" style="width:${pct(settings.kerf)}"></div>`;
-    });
-    if (rest > 0) h += `<div class="${isKept(b) ? 'rest' : 'scrap'}${mode === 'rest' ? ' cur' : ''}" style="width:${pct(rest)}">${rest}</div>`;
-    return `<div class="bar gbar">${h}</div>`;
-  }
-
   function kind(s) {
     if (s.type === 'rest') return isKept(plan.bars[s.bi]) ? 'keep' : 'scrap';
     return s.type;
   }
 
   function panel(s) {
-    const b = plan.bars[s.bi];
-    const where = b ? `<div class="gwhere"><span class="gsec">${esc(short(b.profile))}</span>Goulotte ${s.n + 1} sur ${s.total}</div>` : '';
-    if (s.type === 'take') return `${where}
-      <div class="gk">${ICON.take}Prendre</div>
-      <h2 class="gtitle">${b.source === 'chute' ? `La chute <span class="tag big">#${b.num}</span>` : 'Une goulotte neuve'}</h2>
-      <p class="gtxt">${b.length} mm en <b>${esc(short(b.profile))}</b>, ${b.source === 'chute' ? 'dans le stock de chutes' : 'dans les bruts'}.</p>
-      <p class="gsmall">${b.pieces.length} pièce${b.pieces.length > 1 ? 's' : ''} à en tirer :</p>
+    const b = plan.bars[s.bi], sec = esc(short(b.profile));
+    if (s.type === 'take') return `
+      <div class="gk">Prendre</div>
+      <h2 class="gtitle">${b.source === 'chute' ? `Chute <span class="gtag">#${b.num}</span>` : 'Goulotte neuve'}</h2>
+      <p class="gtxt">${b.length} mm · ${sec} · ${b.source === 'chute' ? 'stock de chutes' : 'bruts'}</p>
       ${track(b, -1, 'take')}`;
     if (s.type === 'cut') {
-      const len = b.pieces[s.j], left = b.length - usedLength(b.pieces.slice(0, s.j), b.length), exact = left === len;
-      return `${where}
-        <div class="gk">${ICON.cut}Couper · pièce ${s.j + 1} / ${b.pieces.length}</div>
-        <h2 class="gtitle gnum num"><span data-count="${len}">${len}</span><small> mm</small></h2>
-        <p class="gtxt">${exact ? `Le morceau restant fait exactement ${len} mm : <b>pas de coupe</b>, c'est la pièce.`
-          : `Mesurez <b>${len} mm</b> depuis le bout, tracez, coupez.`}</p>
-        <p class="gsmall">${exact ? '' : `Longueur avant la coupe : ${left} mm. `}Posez la pièce avec les ${esc(short(b.profile))}.</p>
+      const len = b.pieces[s.j], exact = b.length - usedLength(b.pieces.slice(0, s.j), b.length) === len;
+      return `
+        <div class="gk">Couper</div>
+        <h2 class="gnum num"><span data-count="${len}">${len}</span><small>mm</small></h2>
+        <p class="gtxt">${exact ? 'Pas de coupe : le morceau restant est la pièce.' : 'Mesurez depuis le bout, puis coupez.'}</p>
         ${track(b, s.j, 'cut')}`;
     }
-    if (s.type === 'rest') {
-      const rest = remainderOf(b.pieces, b.length);
-      if (isKept(b)) return `${where}
-        <div class="gk">${ICON.keep}Ranger la chute</div>
-        <h2 class="gtitle gnum num"><span data-count="${rest}">${rest}</span><small> mm</small></h2>
-        <p class="gtxt">${b.keptNum ? `Écrivez <span class="tag big">#${b.keptNum}</span> dessus et rangez-la avec les ${esc(short(b.profile))}.`
-          : `Mettez cette chute de côté : son numéro vous est donné à la fin.`}</p>
-        ${track(b, -1, 'rest')}`;
-      return `${where}
-        <div class="gk">${ICON.scrap}Jeter</div>
-        <h2 class="gtitle gnum num"><span data-count="${rest}">${rest}</span><small> mm</small></h2>
-        <p class="gtxt">Trop court pour être gardé (moins de ${mk(b.profile)} mm) : <b>à la benne</b>.</p>
-        ${track(b, -1, 'rest')}`;
-    }
-    return '';
+    const rest = remainderOf(b.pieces, b.length);
+    if (isKept(b)) return `
+      <div class="gk">Garder</div>
+      <h2 class="gnum num"><span data-count="${rest}">${rest}</span><small>mm</small></h2>
+      <p class="gtxt">${b.keptNum ? `Écrivez <span class="gtag">#${b.keptNum}</span> dessus, rangez avec les ${sec}.` : 'Mettez la chute de côté, son numéro arrive à la fin.'}</p>
+      ${track(b, -1, 'rest')}`;
+    return `
+      <div class="gk">Jeter</div>
+      <h2 class="gnum num"><span data-count="${rest}">${rest}</span><small>mm</small></h2>
+      <p class="gtxt">Trop court pour être gardé : à la benne.</p>
+      ${track(b, -1, 'rest')}`;
   }
 
   function wide(s) {
@@ -2022,47 +1949,40 @@ const Guide = (() => {
         const nb = list.filter(b => b.source === 'barre').length;
         const ch = list.filter(b => b.source === 'chute');
         const need = brutNeeds(plan.bars).find(r => r.profile === pr);
-        return `<li class="${need && need.missing ? 'miss' : ''}">${ductSVG(pr, 'gphoto')}
-          <div><b>${esc(short(pr))}</b>
-          ${nb ? `<span>${nb} goulotte${nb > 1 ? 's' : ''} neuve${nb > 1 ? 's' : ''} · bruts${need && need.missing ? ` <em>il en manque ${need.missing}</em>` : ''}</span>` : ''}
-          ${ch.length ? `<span>Chute${ch.length > 1 ? 's' : ''} : ${ch.map(c => `<span class="tag">#${c.num}</span> ${c.length} mm`).join(' ')}</span>` : ''}</div></li>`;
+        const what = [nb ? `${nb} neuve${nb > 1 ? 's' : ''}` : '', ...ch.map(c => `<span class="gtag">#${c.num}</span> ${c.length} mm`)].filter(Boolean).join(' · ');
+        return `<li class="${need && need.missing ? 'miss' : ''}">${ductSVG(pr, 'gphoto')}<b>${esc(short(pr))}</b><span>${what}${need && need.missing ? ` · <em>manque ${need.missing}</em>` : ''}</span></li>`;
       }).join('');
-      const nb = plan.bars.filter(b => b.source === 'barre').length, nc = plan.bars.length - nb;
       return `<div class="gk">Préparer</div>
-        <h2 class="gtitle">Sortez la matière</h2>
-        <div class="gstats"><div><b class="num" data-count="${nPieces()}">${nPieces()}</b>pièces à couper</div><div><b class="num" data-count="${nb}">${nb}</b>goulottes neuves</div><div><b class="num" data-count="${nc}">${nc}</b>chutes réutilisées</div></div>
-        <ul class="gprep">${rows}</ul>
-        ${missing() ? '<div class="alert">Bruts insuffisants : prévenez l\'espace méthode avant de commencer.</div>' : ''}`;
+        <h2 class="gtitle">Matière à sortir</h2>
+        <p class="gtxt">${nPieces()} pièce${nPieces() > 1 ? 's' : ''} à couper.</p>
+        <ul class="glist">${rows}</ul>
+        ${missing() ? '<p class="gwarn">Bruts insuffisants : prévenez l\'espace méthode.</p>' : ''}`;
     }
     if (s.type === 'validate') {
-      if (plan.applied) return `<div class="gk">Valider</div><h2 class="gtitle">Stock déjà mis à jour ✓</h2>`;
-      return `<div class="gbadge">${ICON.keep}</div>
-        <div class="gk">Valider</div>
-        <h2 class="gtitle">Toutes les coupes sont faites ?</h2>
-        <p class="gtxt">La validation retire du stock la matière utilisée et enregistre les nouvelles chutes.</p>
-        ${missing() ? brutAlert(plan.bars) : ''}`;
+      if (plan.applied) return `<div class="gk">Valider</div><h2 class="gtitle">Stock à jour</h2>`;
+      return `<div class="gk">Valider</div>
+        <h2 class="gtitle">Tout est coupé ?</h2>
+        <p class="gtxt">Le stock sera mis à jour.</p>
+        ${missing() ? '<p class="gwarn">Bruts insuffisants : validation impossible.</p>' : ''}`;
     }
     if (s.type === 'mark') {
       const list = orderedBars().map(i => plan.bars[i]).filter(isKept);
-      return `<div class="gk">Repérer les chutes</div>
+      return `<div class="gk">Numéroter</div>
         <h2 class="gtitle">Écrivez le numéro sur chaque chute</h2>
-        <ul class="gmark">${list.map(b => `<li><span class="tag big">#${b.keptNum || '?'}</span>${ductSVG(b.profile, 'gphoto')}<b>${esc(short(b.profile))}</b><span class="num">${remainderOf(b.pieces, b.length)} mm</span></li>`).join('')}</ul>`;
+        <ul class="glist">${list.map(b => `<li><span class="gtag">#${b.keptNum || '?'}</span><b>${esc(short(b.profile))}</b><span class="num">${remainderOf(b.pieces, b.length)} mm</span></li>`).join('')}</ul>`;
     }
-    return `<div class="gbadge ok">${ICON.keep}</div>
-      <div class="gk">Terminé</div>
+    return `<div class="gdone"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
       <h2 class="gtitle">Découpe terminée</h2>
-      <p class="gtxt">${nPieces()} pièce${nPieces() > 1 ? 's' : ''} coupée${nPieces() > 1 ? 's' : ''}${plan.ref ? ' pour ' + esc(plan.ref) : ''}. Le stock est à jour.</p>`;
+      <p class="gtxt">${nPieces()} pièce${nPieces() > 1 ? 's' : ''}${plan.ref ? ' · ' + esc(plan.ref) : ''} · stock à jour.</p>`;
   }
 
   function nextBtn(s) {
-    const last = k === steps.length - 1;
-    if (last) return '<button type="button" class="btn gnext" data-g="finish">Terminer</button>';
-    if (s.type === 'prep' && missing()) return '<button type="button" class="btn gnext" disabled>Bruts insuffisants</button>';
+    if (k === steps.length - 1) return '<button type="button" class="gnext" data-g="finish">Terminer</button>';
+    if (s.type === 'prep' && missing()) return '<button type="button" class="gnext" disabled>Bruts insuffisants</button>';
     if (s.type === 'validate' && !plan.applied) return missing()
-      ? '<button type="button" class="btn gnext" disabled>Validation bloquée</button>'
-      : `<button type="button" class="btn gnext" data-g="apply"${busy ? ' disabled' : ''}>${busy ? 'Enregistrement…' : 'Valider la découpe'}</button>`;
-    const lab = { prep: 'C\'est prêt, on commence', take: 'Je l\'ai, suivant', cut: 'Coupé, suivant', keep: 'Rangée, suivant', scrap: 'Jeté, suivant', mark: 'C\'est noté, suivant' }[kind(s)] || 'Suivant';
-    return `<button type="button" class="btn gnext" data-g="next">${lab} →</button>`;
+      ? '<button type="button" class="gnext" disabled>Validation impossible</button>'
+      : `<button type="button" class="gnext" data-g="apply"${busy ? ' disabled' : ''}>${busy ? 'Enregistrement…' : 'Valider'}</button>`;
+    return `<button type="button" class="gnext" data-g="next">${s.type === 'prep' ? 'Commencer' : 'Suivant'}</button>`;
   }
 
   function ensureScene() {
@@ -2081,16 +2001,14 @@ const Guide = (() => {
     box.dataset.kind = kind(s);
     box.classList.toggle('flat', !is3d);
     $('gRef').textContent = plan.ref || 'Découpe sur mesure';
-    $('gMach').innerHTML = plan.machine ? `<img src="${machinePhoto(plan.machine)}" alt="">` : '';
-    $('gCount').textContent = `Étape ${k + 1} / ${steps.length}`;
-    $('gChip').textContent = { take: 'Prendre', cut: 'Couper', keep: 'Ranger', scrap: 'Jeter' }[kind(s)] || '';
+    const cb = plan.bars[s.bi];
+    $('gCount').textContent = cb ? `Goulotte ${s.n + 1} / ${s.total} · ${short(cb.profile)}` : `Étape ${k + 1} / ${steps.length}`;
     $('gProg').style.width = ((k + 1) / steps.length * 100) + '%';
     const p = $('gPanel');
     p.innerHTML = is3d ? panel(s) : wide(s);
     p.classList.remove('in'); void p.offsetWidth; p.classList.add('in');
     countUp(p);
-    $('g2d').innerHTML = is3d ? bar2d(plan.bars[s.bi], s.j, s.type) : '';
-    $('gFoot').innerHTML = `<button type="button" class="btn ghost" data-g="prev"${k === 0 ? ' disabled' : ''}>← Retour</button>${nextBtn(s)}`;
+    $('gFoot').innerHTML = `<button type="button" class="gback" data-g="prev"${k === 0 ? ' disabled' : ''}>← Retour</button>${nextBtn(s)}`;
     if (is3d && scene) {
       const b = plan.bars[s.bi];
       const exact = s.type === 'cut' && b.length - usedLength(b.pieces.slice(0, s.j), b.length) === b.pieces[s.j];
