@@ -471,6 +471,7 @@
   .minkeep { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 4px; }
   .minkeep label { display: flex; align-items: center; gap: 8px; }
   .minkeep .duct-photo { width: 44px; height: 30px; object-fit: contain; }
+  .lotnote { display: block; font-size: .72rem; margin-top: 2px; }
   .minkeep small { display: block; font-size: .74rem; color: var(--muted); margin-top: 4px; }
   @media (max-width: 800px) { .minkeep { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .addtitle { margin: 22px 0 10px; font: 700 1.05rem var(--font-head); color: var(--ink); }
@@ -858,7 +859,11 @@
             <button class="btn" type="submit">Enregistrer</button>
             <button class="btn ghost" type="button" id="minAuto">Recalculer depuis les machines</button>
           </div>
-          <p class="muted" style="margin-bottom:0">Un reste plus court que la chute mini de sa section part au déchet. Valeur automatique : la plus petite pièce de la section dans les machines.</p>
+          <p class="muted">Un reste plus court que la chute mini de sa section part au déchet. Valeur automatique : la plus petite pièce de la section dans les machines.</p>
+          <h3 class="addtitle">Conditionnement à l'achat</h3>
+          <div class="minkeep" id="lotRows"></div>
+          <div class="actions"><button class="btn" type="submit">Enregistrer</button></div>
+          <p class="muted" style="margin-bottom:0">Nombre de bruts par lot chez le fournisseur. Les quantités à acheter (commande immédiate, planning et bons de commande) sont arrondies au lot supérieur ; le surplus reste en stock. 1 = achat à l'unité.</p>
         </form>
       </section>
       <section data-at="param" hidden>
@@ -1612,6 +1617,9 @@ function renderStock() {
 }
 
 const SEUIL = 3;
+// Conditionnement à l'achat (bruts par lot) et arrondi au lot supérieur.
+const lotOf = p => Math.max(1, Math.round((settings.lotSec || {})[p] || 1));
+const roundLot = (p, n) => n > 0 ? Math.ceil(n / lotOf(p)) * lotOf(p) : 0;
 const mk = p => (settings.minKeepSec && settings.minKeepSec[p] >= 0) ? settings.minKeepSec[p] : settings.minKeep;
 const brutState = n => n <= 0 ? 'out' : n <= SEUIL ? 'low' : 'ok';
 
@@ -1669,6 +1677,9 @@ function renderSettings() {
   $('minKeepRows').innerHTML = PROFILES.map(p => `<div><label for="mk-${short(p)}">${ductSVG(p)}${short(p)}</label>
     <input id="mk-${short(p)}" class="mkin" data-p="${p}" type="number" min="0" step="1" value="${mk(p)}">
     <small>auto : ${auto[p] != null ? auto[p] + ' mm' : '—'}</small></div>`).join('');
+  $('lotRows').innerHTML = PROFILES.map(p => `<div><label for="lot-${short(p)}">${ductSVG(p)}${short(p)}</label>
+    <input id="lot-${short(p)}" class="lotin" data-p="${p}" type="number" min="1" max="500" step="1" value="${lotOf(p)}">
+    <small>bruts par lot</small></div>`).join('');
 }
 
 function renderAll() { renderProfiles(); renderMachines(); renderStock(); renderBruts(); renderHistory(); renderSettings(); renderOrders(); }
@@ -2191,7 +2202,7 @@ async function achatCompute() {
     for (let i = 0; i < r.qty * orderCount[n]; i++) pieces.push({ profile: r.profile, length: r.length });
   }));
   const bars = optimise(pieces);
-  const rows = brutNeeds(bars);
+  const rows = brutNeeds(bars).map(r => ({ ...r, buy: roundLot(r.profile, r.missing) }));
   const used = bars.filter(b => b.source === 'chute').length;
   const ref = $('achatRef').value.trim() || chosen.map(n => orderCount[n] > 1 ? `${n} × ${orderCount[n]}` : n).join(' + ');
   achatPlan = { ref, rows, pieces };
@@ -2203,7 +2214,7 @@ async function achatCompute() {
         <div class="stat"><b class="num" data-count="${pieces.length}">${pieces.length}</b><span>pièces de goulotte</span></div>
         <div class="stat"><b class="num" data-count="${used}">${used}</b><span>chutes du stock réutilisées</span></div>
         <div class="stat"><b class="num" data-count="${rows.reduce((s, r) => s + r.need, 0)}">${rows.reduce((s, r) => s + r.need, 0)}</b><span>goulottes neuves nécessaires</span></div>
-        <div class="stat hl"><b class="num" id="buyTotal">${rows.reduce((s, r) => s + r.missing, 0)}</b><span>bruts à acheter</span></div>
+        <div class="stat hl"><b class="num" id="buyTotal">${rows.reduce((s, r) => s + r.buy, 0)}</b><span>bruts à acheter</span></div>
       </div>
       ${rows.length ? `<div class="tablewrap needtable" style="margin-top:18px"><table>
         <thead><tr><th>Section</th><th class="r">Nécessaires</th><th class="r">En stock</th><th class="r">À acheter</th></tr></thead>
@@ -2211,7 +2222,7 @@ async function achatCompute() {
           <td><div class="sec">${ductSVG(r.profile)}<strong>${short(r.profile)}</strong></div></td>
           <td class="r num">${r.need}</td>
           <td class="r num">${r.stock}</td>
-          <td class="r"><input type="number" min="0" step="1" class="buy" data-p="${r.profile}" value="${r.missing}" aria-label="Bruts ${short(r.profile)} à acheter"></td>
+          <td class="r"><input type="number" min="0" class="buy" data-p="${r.profile}" value="${r.buy}" step="${lotOf(r.profile)}" aria-label="Bruts ${short(r.profile)} à acheter">${lotOf(r.profile) > 1 ? `<small class="muted lotnote">lot de ${lotOf(r.profile)}</small>` : ''}</td>
         </tr>`).join('')}</tbody>
       </table></div>` : '<p class="empty">Toutes les pièces tiennent dans les chutes du stock : aucun brut nécessaire.</p>'}
       <div class="actions">
@@ -2386,7 +2397,8 @@ function planCompute() {
       const take = Math.min(left[p], n);
       left[p] -= take;
       // Ligne déjà commandée : elle consomme le stock mais n'a plus rien à acheter.
-      if (n - take > 0 && !(r.sent && !isNaN(Date.parse(r.sent)))) buy[p] = n - take;
+      const miss = n - take;
+      if (miss > 0 && !(r.sent && !isNaN(Date.parse(r.sent)))) { buy[p] = roundLot(p, miss); left[p] += buy[p] - miss; }
     });
     return { r, need, withChutes, buy, future, delivery: r.week };
   });
@@ -2524,7 +2536,9 @@ async function removeChute(id) {
 async function saveSettings() {
   const minKeepSec = {};
   document.querySelectorAll('#minKeepRows .mkin').forEach(i => { minKeepSec[i.dataset.p] = i.value; });
-  const s = { barLength: $('setBar').value, kerf: $('setKerf').value, minKeep: settings.minKeep, minKeepSec };
+  const lotSec = {};
+  document.querySelectorAll('#lotRows .lotin').forEach(i => { lotSec[i.dataset.p] = i.value; });
+  const s = { barLength: $('setBar').value, kerf: $('setKerf').value, minKeep: settings.minKeep, minKeepSec, lotSec };
   try {
     document.activeElement && document.activeElement.blur();
     await server('settings', s);

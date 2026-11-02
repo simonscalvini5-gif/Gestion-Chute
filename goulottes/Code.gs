@@ -349,7 +349,8 @@ function readSettings() {
     kerf: map.kerf >= 0 ? map.kerf : DEFAULT_SETTINGS.kerf,
     minKeep: map.minKeep >= 0 ? map.minKeep : DEFAULT_SETTINGS.minKeep,
     nextNum: map.nextNum > 0 ? map.nextNum : 1,
-    minKeepSec: readMinKeepSec()
+    minKeepSec: readMinKeepSec(),
+    lotSec: readLotSec()
   };
 }
 
@@ -369,6 +370,16 @@ function readMinKeepSec() {
   PROFILES.forEach(p => { out[p] = saved[p] >= 0 ? Number(saved[p]) : auto[p] >= 0 ? auto[p] : DEFAULT_SETTINGS.minKeep; });
   return out;
 }
+// Conditionnement à l'achat : nombre de bruts par lot chez le fournisseur (1 = à l'unité).
+function readLotSec() {
+  let saved = {};
+  try { saved = JSON.parse(String(readKey('lotSec') || '{}')); } catch (e) { saved = {}; }
+  const out = {};
+  PROFILES.forEach(p => { out[p] = saved[p] >= 1 ? Math.round(Number(saved[p])) : 1; });
+  return out;
+}
+// Quantité à commander arrondie au lot supérieur.
+const roundLot = (s, profile, n) => { const l = (s.lotSec && s.lotSec[profile] >= 1) ? s.lotSec[profile] : 1; return n > 0 ? Math.ceil(n / l) * l : 0; };
 const minKeepFor = (s, profile) => (s.minKeepSec && s.minKeepSec[profile] >= 0) ? s.minKeepSec[profile] : s.minKeep;
 
 function writeSettings(s) {
@@ -409,7 +420,7 @@ function readState() {
   const s = readSettings();
   return {
     version: Date.now(),
-    settings: { barLength: s.barLength, kerf: s.kerf, minKeep: s.minKeep, minKeepSec: s.minKeepSec, minKeepAuto: autoMinKeep() },
+    settings: { barLength: s.barLength, kerf: s.kerf, minKeep: s.minKeep, minKeepSec: s.minKeepSec, minKeepAuto: autoMinKeep(), lotSec: s.lotSec },
     chutes: readChutes(),
     history: readHistory(),
     machines: readMachines(),
@@ -517,6 +528,11 @@ function saveSettings(p) {
     const m = {};
     PROFILES.forEach(pr => { const v = p.minKeepSec[pr]; if (v !== '' && v !== null && v !== undefined && Number(v) >= 0) m[pr] = Math.round(Number(v)); });
     writeKey('minKeepSec', JSON.stringify(m));
+  }
+  if (p.lotSec) {
+    const l = {};
+    PROFILES.forEach(pr => { const v = Math.round(Number(p.lotSec[pr])); if (v >= 1 && v <= 500) l[pr] = v; });
+    writeKey('lotSec', JSON.stringify(l));
   }
   return {};
 }

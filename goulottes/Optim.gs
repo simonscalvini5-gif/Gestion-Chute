@@ -118,7 +118,9 @@ function planNeedsNow() {
     Object.keys(need).forEach(p => {
       const take = Math.min(bruts[p] || 0, need[p]);
       bruts[p] = (bruts[p] || 0) - take;
-      if (need[p] - take > 0) buy[p] = need[p] - take;
+      const miss = need[p] - take;
+      // Achat arrondi au conditionnement : le surplus reste en stock pour les fabrications suivantes.
+      if (miss > 0) { buy[p] = roundLot(s, p, miss); bruts[p] += buy[p] - miss; }
     });
     out[f.row] = { f: f, need: need, buy: buy };
   });
