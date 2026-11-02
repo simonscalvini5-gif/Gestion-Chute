@@ -204,7 +204,7 @@
   .gprog { height: 4px; background: var(--bg-soft); flex: none; }
   .gprog i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--yellow), #ffd34d); transition: width .4s cubic-bezier(.2,.8,.2,1); }
   .gmain { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.25fr 1fr; }
-  .gstage { position: relative; background: radial-gradient(120% 90% at 30% 20%, #2c5296 0%, #17305f 55%, #0d1d3e 100%); min-height: 380px; display: none; }
+  .gstage { position: relative; background: radial-gradient(110% 85% at 50% 30%, #ffffff 0%, #eef2f8 45%, #d5dde9 100%); min-height: 380px; display: none; }
   .gmodal.has3d .gstage { display: block; }
   .gmodal:not(.has3d) .gmain, .gmodal.flat .gmain { grid-template-columns: 1fr; }
   .gmodal.flat .gstage { display: none; }
@@ -278,7 +278,7 @@
   .gprog { background: #0d1d3e; height: 5px; }
   .gprog i { box-shadow: 0 0 14px 2px rgba(242,183,5,.75); border-radius: 0 4px 4px 0; }
   .gstage::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-    background: radial-gradient(90% 80% at 50% 45%, transparent 55%, rgba(5,12,30,.55) 100%), linear-gradient(180deg, rgba(255,255,255,.06), transparent 30%); }
+    background: radial-gradient(95% 85% at 50% 45%, transparent 60%, rgba(31,42,68,.16) 100%); }
   .gstage #g3d canvas { cursor: default; }
   .gchip { position: absolute; top: 16px; left: 16px; z-index: 1; font: 700 .74rem var(--font); letter-spacing: .18em; text-transform: uppercase;
     color: var(--ink); background: var(--chip, #fff); padding: 6px 12px; border-radius: 999px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
@@ -1172,7 +1172,7 @@ const Cut3D = (() => {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(34, 1, 0.05, 400);
-    scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x0f1f40, .65));
+    scene.add(new THREE.HemisphereLight(0xf2f6ff, 0x8a96aa, .75));
     scene.add(new THREE.AmbientLight(0xffffff, .14));
     const sun = new THREE.DirectionalLight(0xfff6e8, 1.1);
     sun.castShadow = true;
@@ -1185,38 +1185,70 @@ const Cut3D = (() => {
     rim.position.set(-10, 6, -12);
     scene.add(rim);
 
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: .35 }));
+    // Sol de studio : ombres douces et halo de lumière sous la goulotte.
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: .22 }));
     floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.05;
     floor.receiveShadow = true;
     scene.add(floor);
-    const grid = new THREE.GridHelper(60, 120, 0x6f97d6, 0x3a5d9c);
-    grid.material.transparent = true; grid.material.opacity = .22;
-    grid.position.y = 0.001;
-    scene.add(grid);
+    const poolC = document.createElement('canvas');
+    poolC.width = poolC.height = 256;
+    const pg = poolC.getContext('2d'), grd = pg.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grd.addColorStop(0, 'rgba(255,255,255,.75)'); grd.addColorStop(.55, 'rgba(255,255,255,.25)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+    pg.fillStyle = grd; pg.fillRect(0, 0, 256, 256);
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(poolC), transparent: true, depthWrite: false }));
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.y = -0.049;
+    scene.add(pool);
 
-    // Scie circulaire : lame, dents, moyeu jaune.
-    const R = 1.25;
-    const saw = new THREE.Group(), wheel = new THREE.Group();
-    const steel = new THREE.MeshStandardMaterial({ color: 0xd9dee6, metalness: .9, roughness: .28 });
-    const blade = new THREE.Mesh(new THREE.CylinderGeometry(R, R, .02, 72), steel);
-    blade.rotation.z = Math.PI / 2;
-    wheel.add(blade);
-    for (let i = 0; i < 48; i++) {
-      const a = i / 48 * Math.PI * 2;
-      const tooth = new THREE.Mesh(new THREE.BoxGeometry(.03, .1, .07), steel);
-      tooth.position.set(0, Math.cos(a) * (R + .03), Math.sin(a) * (R + .03));
-      tooth.rotation.x = -a + .5;
-      wheel.add(tooth);
+    const steel = new THREE.MeshStandardMaterial({ color: 0xd9dee6, metalness: .85, roughness: .3 });
+    const black = new THREE.MeshStandardMaterial({ color: 0x23272e, metalness: .35, roughness: .55 });
+    const red = new THREE.MeshStandardMaterial({ color: 0xd8401f, roughness: .45, metalness: .05 });
+    const box = (x, y, z, mat) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x, y, z), mat); m.castShadow = true; m.receiveShadow = true; return m; };
+    // Cisaille à goulotte : socle en U, tête de coupe, levier à poignée rouge, butée de longueur.
+    let tool = null, head = null, blade = null, lever = null, stop = null;
+    function buildTool() {
+      if (tool) { scene.remove(tool); tool.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+      const { w, h, L } = st, Lb = L + 1.4, depth = w + 0.7;
+      tool = new THREE.Group();
+      const plate = box(Lb, 0.05, depth, black); plate.position.set(0, -0.025, 0);
+      const back = box(Lb, h * 0.6 + 0.12, 0.04, black); back.position.set(0, (h * 0.6 + 0.12) / 2, -depth / 2);
+      const lip = box(Lb, 0.1, 0.04, black); lip.position.set(0, 0.05, depth / 2);
+      [[-Lb / 2 + .15], [Lb / 2 - .15]].forEach(([x]) => { const f = box(.12, .05, depth + .1, steel); f.position.set(x, -.06, 0); tool.add(f); });
+      tool.add(plate, back, lip);
+      head = new THREE.Group();
+      const H = h + 0.55, D = w + 0.45;
+      [-0.09, 0.09].forEach(x => { const sp = box(0.05, H, D, steel); sp.position.set(x, H / 2, 0); head.add(sp); });
+      const bridge = box(0.24, 0.12, D, steel); bridge.position.set(0, H, 0); head.add(bridge);
+      // Peigne de guidage de part et d'autre.
+      for (let i = 0; i < 9; i++) [-1, 1].forEach(sd => {
+        const t = box(0.02, h * 0.7, 0.02, steel);
+        t.position.set(sd * (0.18 + i * 0.07), h * 0.35, -w / 2 - 0.06); head.add(t);
+      });
+      blade = box(0.018, h + 0.2, w + 0.25, new THREE.MeshStandardMaterial({ color: 0xf4f6f9, metalness: .95, roughness: .15 }));
+      head.add(blade);
+      lever = new THREE.Group();
+      lever.position.set(0.12, H, 0);
+      const LL = Math.min(5, Math.max(2.6, L * 0.22));
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, LL, 16), steel); rod.position.y = LL / 2; rod.castShadow = true;
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, LL * 0.2, 20), red); grip.position.y = LL * 0.92; grip.castShadow = true;
+      const hubM = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, D * 0.6, 20), steel); hubM.rotation.x = Math.PI / 2;
+      lever.add(rod, grip, hubM);
+      head.add(lever);
+      tool.add(head);
+      stop = new THREE.Group();
+      const sb = box(0.06, h * 0.75, w + 0.3, steel); sb.position.y = h * 0.375; stop.add(sb);
+      const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.16, 16), red); knob.rotation.x = Math.PI / 2; knob.position.set(0, h * 0.6, w / 2 + 0.2); stop.add(knob);
+      tool.add(stop);
+      scene.add(tool);
+      pool.scale.set(Lb * 1.6, depth * 5, 1);
+      head.position.x = Lb / 2; stop.position.x = -Lb / 2;
     }
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(R * .26, R * .26, .07, 40), new THREE.MeshStandardMaterial({ color: 0xf2b705, metalness: .3, roughness: .4, emissive: 0x3a2a00 }));
-    hub.rotation.z = Math.PI / 2;
-    wheel.add(hub);
-    wheel.children.forEach(m => { m.castShadow = true; });
-    saw.add(wheel);
-    scene.add(saw);
+
     // Trait de coupe lumineux.
     const laserMat = new THREE.MeshBasicMaterial({ color: 0xf2b705, transparent: true, opacity: .7, depthWrite: false });
     const laser = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), laserMat);
+    laser.renderOrder = 5;
     scene.add(laser);
     // Cote : trait, deux butées, étiquette.
     const dimMat = new THREE.MeshBasicMaterial({ color: 0xf2b705 });
@@ -1264,8 +1296,10 @@ const Cut3D = (() => {
         grp.add(s); segs.push(s);
       }
       grp.position.y = reduceMotion ? 0 : 3.2;
+      st.w = wMm * S; st.h = hMm * S; st.L = bar.length * S;
       scene.add(grp);
       st.grp = grp; st.segs = segs; st.bar = bar; st.born = performance.now();
+      buildTool();
     }
 
     // Position visée de chaque tronçon selon l'étape.
@@ -1296,12 +1330,15 @@ const Cut3D = (() => {
       const s = mode === 'cut' ? segs[j] : null;
       const cutX = s ? s.userData.base + s.userData.len + settings.kerf * S / 2 + 0.06 : 0;
       const sawOn = !!s && !st.info.exact;
-      saw.visible = laser.visible = sawOn;
+      laser.visible = sawOn;
+      head.visible = sawOn;
+      stop.visible = !!s;
       if (sawOn) {
-        saw.position.set(cutX, 0, 0);
-        laser.scale.set(0.014, h + 0.3, w + 0.8);
-        laser.position.set(cutX, (h + 0.3) / 2 - 0.02, 0);
+        st.headX = cutX;
+        laser.scale.set(0.012, 0.012, w + 0.9);
+        laser.position.set(cutX, h + 0.015, 0);
       }
+      if (s) st.stopX = s.userData.base - 0.04;
       dim.visible = !!s;
       if (s) {
         const a = s.userData.base, b = a + s.userData.len, y = h + 0.32;
@@ -1330,6 +1367,16 @@ const Cut3D = (() => {
       }
       goal.target.set(focusX * 0.45, h * 0.6, 0.25);
       st.span = span;
+      // Pendant la coupe : cadrage serré sur la pièce et la cisaille.
+      if (s) {
+        const a = s.userData.base, len = cutX - a;
+        const view = Math.min(span, Math.max(5.5, Math.min(len, 6.5) + 3.2));
+        const right = cutX + 2.6, left = Math.max(a - 0.3, right - view);
+        goal.target.set((left + right) / 2, h * 0.9 + 0.4, 0.2);
+        st.span = view;
+      }
+      const sc2 = Math.min(2.4, Math.max(.6, st.span / 8));
+      tag.scale.set(3.2 * sc2, 1 * sc2, 1);
       st.t0 = performance.now();
     }
 
@@ -1366,14 +1413,16 @@ const Cut3D = (() => {
           m.emissiveIntensity = g.glow ? .55 + .45 * pulse : 0;
         });
       });
-      if (saw.visible) {
-        wheel.rotation.x -= reduceMotion ? 0 : 0.35;
-        // Descente de la lame à travers la goulotte, puis remontée.
-        const c = (t % 2.6) / 2.6;
-        const p = c < .45 ? Math.sin(c / .45 * Math.PI / 2) : c < .6 ? 1 : Math.cos((c - .6) / .4 * Math.PI / 2);
-        saw.position.y = st.h + R + 0.35 - (st.h + 0.45) * (reduceMotion ? .5 : p);
-        laserMat.opacity = .35 + .45 * pulse;
+      if (head && head.visible) {
+        head.position.x = lerp(head.position.x, st.headX, reduceMotion ? 1 : .1);
+        // Le levier s'abaisse, la lame traverse la goulotte, puis remonte.
+        const c = (t % 2.8) / 2.8;
+        const p = reduceMotion ? .3 : c < .2 ? 0 : c < .5 ? Math.sin((c - .2) / .3 * Math.PI / 2) : c < .62 ? 1 : c < .9 ? Math.cos((c - .62) / .28 * Math.PI / 2) : 0;
+        lever.rotation.z = -(0.12 + p * 1.1);
+        blade.position.y = st.h + 0.45 - p * (st.h + 0.12);
+        laserMat.opacity = .45 + .45 * pulse;
       }
+      if (stop && stop.visible) stop.position.x = lerp(stop.position.x, st.stopX, reduceMotion ? 1 : .1);
       // Recul calculé pour que toute la goulotte tienne dans le cadre.
       goal.r = ((st.span || 4) * 0.6 / (Math.tan(17 * Math.PI / 180) * Math.max(.8, camera.aspect)) + 1.6);
       const sway = reduceMotion ? 0 : Math.sin(T0 * .35) * .12;
