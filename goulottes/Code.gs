@@ -75,6 +75,7 @@ function doPost(e) {
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('Goulottes – TDM by Insidix')
+    .setFaviconUrl('https://simonscalvini5-gif.github.io/Gestion-Chute/img/favicon-32.png')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
