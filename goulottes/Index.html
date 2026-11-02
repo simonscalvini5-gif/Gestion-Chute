@@ -355,6 +355,14 @@
   .bdcprices .sec .duct-photo, .bdcprices .sec svg { width: 54px; height: 40px; object-fit: contain; }
   .bdcprices td:last-child input { text-align: right; max-width: 160px; margin-left: auto; display: block; }
   @media (max-width: 600px) { .bdcgrid { grid-template-columns: 1fr; } }
+  .undo { margin-bottom: 16px; }
+  .undohead { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .undohead b { display: block; font: 700 1.05rem var(--font-head); color: var(--ink); }
+  .undohead .muted { display: block; }
+  #undoDetail { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  #undoDetail ul { margin: 6px 0 12px; padding-left: 18px; color: var(--ink); }
+  tr.cancelled td { color: #a3abb8; text-decoration: line-through; }
+  tr.cancelled td:last-child { text-decoration: none; }
   .addtitle { margin: 22px 0 10px; font: 700 1.05rem var(--font-head); color: var(--ink); }
   .stockalert { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; margin-bottom: 16px;
     background: var(--ko-bg); color: var(--ko); border: 1px solid #f2c4bf; }
@@ -669,6 +677,11 @@
       </section>
       <section data-at="hist" hidden>
         <div class="sectiontitle"><h2>Dernières découpes</h2><p class="muted">100 dernières opérations</p></div>
+        <div class="card undo" id="undoBox">
+          <div class="undohead"><div><b>Découpe validée par erreur ?</b><span class="muted">Annule la dernière découpe : chutes et bruts remis en stock, restes retirés.</span></div>
+          <button type="button" class="btn ghost" id="undoBtn">Annuler la dernière découpe</button></div>
+          <div id="undoDetail" hidden></div>
+        </div>
         <div class="card" style="padding:0;overflow:hidden" id="history"></div>
       </section>
       <section data-at="param" hidden>
@@ -1453,14 +1466,15 @@ function renderHistory() {
   if (!history.length) { setHTML($('history'), '<div class="empty" style="padding:22px 24px">Aucune découpe enregistrée.</div>'); return; }
   setHTML($('history'), `
     <div class="tablewrap"><table>
-      <thead><tr><th>Date</th><th>Section</th><th>Coupe (mm)</th><th>Depuis</th><th>Reste</th></tr></thead>
+      <thead><tr><th>Date</th><th>Section</th><th>Coupe (mm)</th><th>Depuis</th><th>Reste</th><th></th></tr></thead>
       <tbody>${history.map(h => `
-        <tr>
+        <tr class="${h.cancelled ? 'cancelled' : ''}">
           <td class="muted">${fmtDate(h.date)}</td>
           <td>${esc(short(h.profile))}</td>
           <td class="num">${esc(h.cut)}</td>
           <td>${h.source === 'chute' ? 'Chute <span class="tag">#' + h.sourceNum + '</span> ' + h.sourceLength + ' mm' : h.source === 'erreur' ? '<span class="pill warn">Erreur de coupe</span>' : 'Goulotte neuve'}</td>
           <td>${h.remainder > 0 ? (h.kept ? '<span class="tag">#' + h.keptNum + '</span> ' + h.remainder + ' mm' : h.remainder + ' mm · ' + (h.source === 'erreur' ? 'rebut' : 'déchet')) : '—'}</td>
+          <td>${h.cancelled ? '<span class="pill ko">Annulée</span>' : ''}</td>
         </tr>`).join('')}
       </tbody>
     </table></div>`);
@@ -1948,6 +1962,35 @@ async function achatValidate(btn) {
   }
 }
 
+/* ---------- Annulation de la dernière découpe ---------- */
+
+let undoOp = null;
+function closeUndo() { undoOp = null; $('undoDetail').hidden = true; $('undoDetail').innerHTML = ''; }
+
+async function showUndo() {
+  try {
+    const r = await achatServer('undoInfo');
+    const u = r.undo;
+    if (!u) { closeUndo(); toast('Aucune découpe à annuler.'); return; }
+    undoOp = u.op;
+    $('undoDetail').innerHTML = `<p style="margin:0">Découpe du <b>${fmtDate(u.date)}</b> :</p>
+      <ul>${u.lines.map(l => `<li>${esc(short(l.profile))} · coupe ${esc(l.cut)} mm · ${l.source === 'Chute' ? 'chute #' + l.sourceNum + ' (' + l.sourceLength + ' mm) remise en stock'
+        : l.source === 'Erreur de coupe' ? 'erreur de coupe' : '1 brut remis en stock'}${l.keptNum ? ' · reste #' + l.keptNum + ' retiré' : ''}</li>`).join('')}</ul>
+      <div class="actions" style="margin-top:0"><button type="button" class="btn danger" id="undoConfirm">Confirmer l'annulation</button>
+      <button type="button" class="btn ghost" id="undoClose">Garder la découpe</button></div>`;
+    $('undoDetail').hidden = false;
+  } catch (e) { toast(e.message); }
+}
+
+async function confirmUndo(btn) {
+  btn.disabled = true;
+  try {
+    await achatServer('undoLast', { op: undoOp });
+    closeUndo();
+    toast('Découpe annulée : stock remis en état.');
+  } catch (e) { toast(e.message); btn.disabled = false; }
+}
+
 /* ---------- Bons de commande ---------- */
 
 function loadBdc(c) {
@@ -2213,6 +2256,11 @@ $('orders').addEventListener('click', e => {
   renderOrders();
 });
 $('achatCompute').addEventListener('click', achatCompute);
+$('undoBtn').addEventListener('click', showUndo);
+$('undoDetail').addEventListener('click', e => {
+  if (e.target.id === 'undoConfirm') confirmUndo(e.target);
+  if (e.target.id === 'undoClose') closeUndo();
+});
 $('bdcForm').addEventListener('submit', async e => {
   e.preventDefault();
   const config = {

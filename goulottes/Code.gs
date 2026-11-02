@@ -106,6 +106,8 @@ function api(action, payload, login) {
     else if (action === 'removeBrut') result = removeBruts(payload);
     else if (action === 'achatLogin') result = achatCheck(payload) || { achats: readAchats(), planning: readPlanning(), bdcConfig: readBdcConfig() };
     else if (action === 'bdcConfig') result = achatCheck(payload) || saveBdcConfig(payload);
+    else if (action === 'undoInfo') result = achatCheck(payload) || { undo: lastOperation() && describeOp(lastOperation()) };
+    else if (action === 'undoLast') result = achatCheck(payload) || undoLast(payload);
     else if (action === 'bdcTest') result = achatCheck(payload) || bdcTest(payload);
     else if (action === 'planSave') result = achatCheck(payload) || savePlanning(payload);
     else if (action === 'deliveryReceived') result = achatCheck(payload) || receiveDelivery(payload);
@@ -134,8 +136,12 @@ function sheet(name, headers) {
 }
 
 const stockSheet = () => sheet(SHEET_STOCK, ['N°', 'Section', 'Longueur (mm)', 'Ajoutée le', 'ID']);
-const historySheet = () => sheet(SHEET_HISTORY,
-  ['Date', 'Section', 'Coupe (mm)', 'Source', 'Longueur source (mm)', 'N° source', 'Reste (mm)', 'Gardée', 'N° gardé']);
+const HISTORY_HEAD = ['Date', 'Section', 'Coupe (mm)', 'Source', 'Longueur source (mm)', 'N° source', 'Reste (mm)', 'Gardée', 'N° gardé', 'Opération', 'Annulée le'];
+function historySheet() {
+  const sh = sheet(SHEET_HISTORY, HISTORY_HEAD);
+  if (sh.getRange(1, 10).getValue() !== 'Opération') sh.getRange(1, 1, 1, HISTORY_HEAD.length).setValues([HISTORY_HEAD]);
+  return sh;
+}
 const settingsSheet = () => sheet(SHEET_SETTINGS, ['Paramètre', 'Valeur']);
 const mouvementsSheet = () => sheet(SHEET_MOUVEMENTS, ['Date', 'Section', 'Quantité', 'Motif']);
 const achatsSheet = () => sheet(SHEET_ACHATS, ['Date', 'Acheteur', 'Référence', 'Section', 'Quantité']);
@@ -329,7 +335,8 @@ function readHistory() {
   const last = sh.getLastRow();
   if (last < 2) return [];
   const n = Math.min(HISTORY_SHOWN, last - 1);
-  return sh.getRange(last - n + 1, 1, n, 9).getValues().reverse().map(r => ({
+  return sh.getRange(last - n + 1, 1, n, 11).getValues().reverse().map(r => ({
+    op: String(r[9] || ''), cancelled: r[10] !== '' && r[10] !== null,
     date: iso(r[0]), profile: String(r[1]), cut: String(r[2]),
     source: r[3] === 'Chute' ? 'chute' : r[3] === 'Erreur de coupe' ? 'erreur' : 'barre', sourceLength: Number(r[4]),
     sourceNum: r[5] === '' ? null : Number(r[5]), remainder: Number(r[6]),
@@ -398,7 +405,7 @@ function cut(p) {
     writeSettings(s);
   }
   historySheet().appendRow([now, p.profile, len, p.source === 'chute' ? 'Chute' : 'Goulotte neuve',
-    sourceLength, sourceNum, remainder, kept ? 'Oui' : 'Non', keptNum]);
+    sourceLength, sourceNum, remainder, kept ? 'Oui' : 'Non', keptNum, Utilities.getUuid(), '']);
   if (p.source !== 'chute') changeBruts({ [p.profile]: -1 }, 'Découpe ' + len + ' mm');
   return { remainder: remainder, kept: kept, keptNum: kept ? keptNum : null };
 }
@@ -418,7 +425,7 @@ function miscut(p) {
     stockSheet().appendRow([num, p.profile, len, now, Utilities.getUuid()]);
     writeSettings(s);
   }
-  historySheet().appendRow([now, p.profile, len, 'Erreur de coupe', '', '', len, kept ? 'Oui' : 'Non', num]);
+  historySheet().appendRow([now, p.profile, len, 'Erreur de coupe', '', '', len, kept ? 'Oui' : 'Non', num, Utilities.getUuid(), '']);
   return { kept: kept, num: kept ? num : null, minKeep: s.minKeep };
 }
 
@@ -495,6 +502,7 @@ function applyPlan(p) {
 
   // Retire les chutes utilisées, ajoute les restes, écrit l'historique.
   const now = new Date();
+  const op = Utilities.getUuid();
   const kept = [];
   checked.forEach(c => {
     if (c.b.source === 'chute') sh.deleteRow(findRow(String(c.b.chuteId)));
@@ -507,7 +515,7 @@ function applyPlan(p) {
     }
     kept.push(keep ? num : null);
     historySheet().appendRow([now, c.b.profile, c.pieces.join(' + '),
-      c.b.source === 'chute' ? 'Chute' : 'Goulotte neuve', c.total, c.sourceNum, remainder, keep ? 'Oui' : 'Non', num]);
+      c.b.source === 'chute' ? 'Chute' : 'Goulotte neuve', c.total, c.sourceNum, remainder, keep ? 'Oui' : 'Non', num, op, '']);
   });
   writeSettings(s);
   const used = {};
@@ -768,4 +776,63 @@ function installDailyTrigger() {
   } catch (e) {
     // Sans autorisation pour les déclencheurs, les rappels partent à la première ouverture du site de la semaine.
   }
+}
+
+/* ---------- Annulation de la dernière découpe ---------- */
+
+// Dernière opération (découpe, plan validé ou erreur de coupe) non annulée : { op, rows: [{ row, ... }] }.
+function lastOperation() {
+  const sh = historySheet();
+  const last = sh.getLastRow();
+  if (last < 2) return null;
+  const n = Math.min(500, last - 1);
+  const vals = sh.getRange(last - n + 1, 1, n, 11).getValues();
+  for (let i = vals.length - 1; i >= 0; i--) {
+    const op = String(vals[i][9] || '');
+    if (!op) return null;              // ligne ancienne, sans identifiant : rien d'annulable avant elle
+    if (vals[i][10] !== '') continue;  // déjà annulée
+    const rows = [];
+    vals.forEach((r, k) => { if (String(r[9]) === op && r[10] === '') rows.push({ row: last - n + 1 + k, r: r }); });
+    return { op: op, rows: rows };
+  }
+  return null;
+}
+
+function describeOp(o) {
+  const r0 = o.rows[0].r;
+  return {
+    op: o.op,
+    date: iso(r0[0]),
+    lines: o.rows.map(x => ({
+      profile: String(x.r[1]), cut: String(x.r[2]), source: String(x.r[3]), sourceLength: Number(x.r[4]) || 0,
+      sourceNum: x.r[5] === '' ? null : Number(x.r[5]), keptNum: x.r[8] === '' ? null : Number(x.r[8])
+    }))
+  };
+}
+
+function undoLast(p) {
+  const o = lastOperation();
+  if (!o) return { error: 'Aucune découpe à annuler.' };
+  if (p.op && p.op !== o.op) return { error: 'L\'historique a changé entre-temps : rechargez la page et recommencez.' };
+  const sh = stockSheet();
+  // Les restes créés par cette découpe doivent encore être en stock.
+  const nums = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(r => Number(r[0])) : [];
+  const missing = o.rows.filter(x => x.r[8] !== '' && nums.indexOf(Number(x.r[8])) < 0).map(x => '#' + x.r[8]);
+  if (missing.length) return { error: 'Impossible d\'annuler : la chute ' + missing.join(', ') + ' issue de cette découpe a déjà été utilisée ou retirée.' };
+  const now = new Date();
+  const bruts = {};
+  o.rows.forEach(x => {
+    const r = x.r;
+    if (r[8] !== '') {
+      const i = nums.indexOf(Number(r[8]));
+      sh.deleteRow(i + 2);
+      nums.splice(i, 1);
+    }
+    if (r[3] === 'Chute') sh.appendRow([Number(r[5]), String(r[1]), Number(r[4]), now, Utilities.getUuid()]);
+    if (r[3] === 'Goulotte neuve') bruts[String(r[1])] = (bruts[String(r[1])] || 0) + 1;
+  });
+  changeBruts(bruts, 'Annulation de découpe');
+  const hs = historySheet();
+  o.rows.forEach(x => hs.getRange(x.row, 11).setValue(now));
+  return { undone: describeOp(o) };
 }
