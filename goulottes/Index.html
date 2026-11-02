@@ -1897,8 +1897,12 @@ function showAchat() {
 function renderAchatHist(list) {
   if (!list || !list.length) { $('achatHist').innerHTML = '<div class="empty" style="padding:22px 24px">Aucun achat enregistré.</div>'; return; }
   $('achatHist').innerHTML = `<div class="tablewrap"><table>
-    <thead><tr><th>Date</th><th>Acheteur</th><th>Référence</th><th>Section</th><th class="r">Bruts</th></tr></thead>
-    <tbody>${list.map(a => `<tr><td class="muted">${fmtDate(a.date)}</td><td>${esc(a.user)}</td><td>${esc(a.ref || '—')}</td><td>${esc(short(a.profile))}</td><td class="r num"><strong>+${a.qty}</strong></td></tr>`).join('')}</tbody>
+    <thead><tr><th>Date</th><th>Référence</th><th>BC</th><th>Section</th><th class="r">Bruts</th><th class="r">Réception</th></tr></thead>
+    <tbody>${list.map(a => `<tr><td class="muted">${fmtDate(a.date)}</td><td>${esc(a.ref || '—')}</td><td>${a.bc ? '<span class="tag">' + esc(a.bc) + '</span>' : '—'}</td>
+      <td>${esc(short(a.profile))}</td><td class="r num"><strong>${a.qty}</strong></td>
+      <td class="r">${a.status === 'Commandé'
+        ? `<button type="button" class="btn small" data-recv-achat="${esc(a.id)}">Réception reçue</button>`
+        : `<span class="pill ok">Reçue ✓</span>${a.received ? ' <span class="muted">' + new Date(a.received).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + '</span>' : ''}`}</td></tr>`).join('')}</tbody>
   </table></div>`;
 }
 
@@ -1939,7 +1943,7 @@ async function achatCompute() {
         </tr>`).join('')}</tbody>
       </table></div>` : '<p class="empty">Toutes les pièces tiennent dans les chutes du stock : aucun brut nécessaire.</p>'}
       <div class="actions">
-        <button type="button" class="btn big" id="achatValidate"${rows.length ? '' : ' disabled'}>Valider l'achat : ajouter au stock</button>
+        <button type="button" class="btn big" id="achatValidate"${rows.length ? '' : ' disabled'}>Valider la commande</button>
         <button type="button" class="btn big ghost" id="achatCancel">Annuler</button>
       </div>
     </div>`;
@@ -1965,7 +1969,7 @@ async function achatValidate(btn) {
   if (!btn.dataset.armed) {
     btn.dataset.armed = '1';
     btn.classList.add('danger');
-    btn.textContent = `Confirmer : ajouter ${lines.reduce((s, l) => s + l.qty, 0)} brut(s) au stock`;
+    btn.textContent = `Confirmer la commande de ${lines.reduce((s, l) => s + l.qty, 0)} brut(s)`;
     return;
   }
   btn.disabled = true;
@@ -1975,7 +1979,7 @@ async function achatValidate(btn) {
     $('achatOut').hidden = true;
     Object.keys(orderCount).forEach(k => { orderCount[k] = 0; });
     renderOrders();
-    toast(`Achat validé : ${lines.map(l => '+' + l.qty + ' ' + short(l.profile)).join(', ')} ajoutés aux bruts.` + (r.bdc ? ` Bon de commande ${r.bdc.num} envoyé par e-mail.` : ''));
+    toast((r.bdc ? `Bon de commande ${r.bdc.num} envoyé. ` : 'Commande enregistrée. ') + 'Les bruts entreront en stock quand la réception sera validée.');
     if (r.bdc) {
       const out = $('achatOut');
       out.innerHTML = `<div class="card"><p style="margin:0"><b>Bon de commande ${esc(r.bdc.num)}</b> créé et envoyé par e-mail. <a class="btn small ghost" href="${esc(r.bdc.url)}" target="_blank" rel="noopener">Ouvrir le PDF</a></p></div>`;
@@ -2127,6 +2131,19 @@ function mailCell(x) {
   return rw <= thisWeek() ? '<span class="pill warn">Envoi en cours</span>' : `<b>${wLabel(rw)}</b> <span class="muted">· automatique</span>`;
 }
 
+// Réception d'une commande planifiée : bouton tant que la livraison du bon de commande n'est pas validée.
+function receptionCell(x) {
+  const m = /BC (G\d+)/.exec(x.r.buyText || '');
+  const bc = m ? m[1] : '';
+  const dl = planning.deliveries.filter(d => bc ? d.bc === bc : d.week === x.r.week);
+  if (dl.length && dl.every(d => d.status === 'Reçu')) {
+    const r = dl.map(d => d.received).filter(Boolean).sort().pop();
+    return `<span class="pill ok">Reçue ✓</span>${r ? ' <span class="muted">' + new Date(r).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + '</span>' : ''}`;
+  }
+  if (!dl.length) return `<b>${wLabel(x.delivery)}</b>`;
+  return `<b>${wLabel(x.delivery)}</b> <button type="button" class="btn small" data-recv-bc="${esc(bc)}" data-recv-week="${esc(x.r.week)}">Réception reçue</button>`;
+}
+
 function renderPlanning() {
   if (!planning) return;
   const sel = $('planMachine');
@@ -2139,7 +2156,7 @@ function renderPlanning() {
   rows.forEach(x => PROFILES.forEach(p => { if (x.buy[p]) total[p] = (total[p] || 0) + x.buy[p]; }));
   const now = thisWeek();
   $('planTable').innerHTML = rows.length ? `<div class="tablewrap"><table class="ptable">
-    <thead><tr><th>Fabrication</th><th>Machine</th><th class="r">Qté</th><th>Bruts nécessaires<br><small>sans chutes · avec chutes actuelles</small></th><th>À acheter<br><small>estimation du jour</small></th><th>Bon de commande</th><th>Arrivée des bruts</th><th></th></tr></thead>
+    <thead><tr><th>Fabrication</th><th>Machine</th><th class="r">Qté</th><th>Bruts nécessaires<br><small>sans chutes · avec chutes actuelles</small></th><th>À acheter<br><small>estimation du jour</small></th><th>Bon de commande</th><th>Réception</th><th></th></tr></thead>
     <tbody>${rows.map((x, i) => `<tr class="${x.future ? '' : 'past'}">
       <td class="wk"><b>${wLabel(x.r.week)}</b><span>${fmtDay(weekMonday(x.r.week))}</span></td>
       <td><div class="mach"><img src="${machinePhoto(x.r.machine)}" alt="">${esc(x.r.machine)}</div></td>
@@ -2148,8 +2165,8 @@ function renderPlanning() {
       <td>${x.future ? chipList(x.buy, 'buy') : '<span class="muted">—</span>'}</td>
       <td>${mailCell(x)}</td>
       <td>${!x.future ? '<span class="muted">Fabriquée</span>'
-        : (x.r.sent && !isNaN(Date.parse(x.r.sent))) ? (/^Rien/.test(x.r.buyText || '') ? '<span class="muted">Stock suffisant</span>' : `<b>${wLabel(x.delivery)}</b> <span class="muted">· auto</span>`)
-        : Object.keys(x.buy).length ? `<b>${wLabel(x.delivery)}</b> <span class="muted">· auto</span>` : '<span class="muted">Stock suffisant (estimation)</span>'}</td>
+        : (x.r.sent && !isNaN(Date.parse(x.r.sent))) ? (/^Rien/.test(x.r.buyText || '') ? '<span class="muted">Stock suffisant</span>' : receptionCell(x))
+        : Object.keys(x.buy).length ? `<b>${wLabel(x.delivery)}</b> <span class="muted">· prévue</span>` : '<span class="muted">Stock suffisant (estimation)</span>'}</td>
       <td class="r">${x.future ? `<button type="button" class="btn small ghost" data-del-plan="${i}">Supprimer</button>` : ''}</td>
     </tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="4">Total à acheter</td><td colspan="4">${chipList(total, 'buy')}</td></tr></tfoot>
@@ -2284,6 +2301,28 @@ $('orders').addEventListener('click', e => {
   renderOrders();
 });
 $('achatCompute').addEventListener('click', achatCompute);
+$('achatHist').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-recv-achat]');
+  if (!b) return;
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Confirmer la réception'; b.classList.add('danger'); return; }
+  b.disabled = true;
+  try { const r = await achatServer('achatReceive', { id: b.dataset.recvAchat }); renderAchatHist(r.achats); if (r.planning) loadPlanning(r.planning); toast('Réception validée : bruts ajoutés au stock.'); }
+  catch (err) { toast(err.message); b.disabled = false; }
+});
+$('planTable').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-recv-bc]');
+  if (!b) return;
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Confirmer la réception'; b.classList.add('danger'); return; }
+  b.disabled = true;
+  try {
+    const bc = b.dataset.recvBc;
+    const payload = bc ? { bc } : { id: (planning.deliveries.find(d => d.week === b.dataset.recvWeek && d.status === 'Prévu') || {}).id };
+    const r = await achatServer('deliveryReceived', payload);
+    if (r.planning) loadPlanning(r.planning);
+    if (r.achats) renderAchatHist(r.achats);
+    toast('Réception validée : bruts ajoutés au stock.');
+  } catch (err) { toast(err.message); b.disabled = false; }
+});
 $('undoBtn').addEventListener('click', showUndo);
 $('undoDetail').addEventListener('click', e => {
   if (e.target.id === 'undoConfirm') confirmUndo(e.target);
@@ -2356,7 +2395,7 @@ $('achatOut').addEventListener('input', e => {
   const t = [...document.querySelectorAll('#achatOut input.buy')].reduce((s, i) => s + Math.max(0, Math.round(Number(i.value) || 0)), 0);
   $('buyTotal').textContent = t;
   const v = $('achatValidate');
-  if (v) { delete v.dataset.armed; v.classList.remove('danger'); v.textContent = 'Valider l\'achat : ajouter au stock'; }
+  if (v) { delete v.dataset.armed; v.classList.remove('danger'); v.textContent = 'Valider la commande'; }
 });
 $('achatLoginForm').addEventListener('submit', async e => {
   e.preventDefault();

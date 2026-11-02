@@ -122,6 +122,7 @@ function api(action, payload, login) {
     else if (action === 'bdcTest') result = achatCheck(payload) || bdcTest(payload);
     else if (action === 'planSave') result = achatCheck(payload) || savePlanning(payload);
     else if (action === 'deliveryReceived') result = achatCheck(payload) || receiveDelivery(payload);
+    else if (action === 'achatReceive') result = achatCheck(payload) || receiveAchat(payload);
     else if (action === 'achatValidate') result = achatCheck(payload) || validateAchat(payload);
     else return { error: 'Action inconnue.' };
     SpreadsheetApp.flush();
@@ -155,7 +156,12 @@ function historySheet() {
 }
 const settingsSheet = () => sheet(SHEET_SETTINGS, ['Paramètre', 'Valeur']);
 const mouvementsSheet = () => sheet(SHEET_MOUVEMENTS, ['Date', 'Section', 'Quantité', 'Motif']);
-const achatsSheet = () => sheet(SHEET_ACHATS, ['Date', 'Acheteur', 'Référence', 'Section', 'Quantité']);
+const ACHATS_HEAD = ['Date', 'Acheteur', 'Référence', 'Section', 'Quantité', 'Statut', 'Reçu le', 'ID', 'BC'];
+function achatsSheet() {
+  const sh = sheet(SHEET_ACHATS, ACHATS_HEAD);
+  if (sh.getRange(1, 6).getValue() !== 'Statut') sh.getRange(1, 1, 1, ACHATS_HEAD.length).setValues([ACHATS_HEAD]);
+  return sh;
+}
 
 /* ---------- Goulottes brutes (barres neuves de 2000 mm) ---------- */
 
@@ -259,10 +265,13 @@ function readAchats() {
   const last = sh.getLastRow();
   if (last < 2) return [];
   const n = Math.min(30, last - 1);
-  return sh.getRange(last - n + 1, 1, n, 5).getValues().reverse()
-    .map(r => ({ date: iso(r[0]), user: String(r[1]), ref: String(r[2]), profile: String(r[3]), qty: Number(r[4]) }));
+  return sh.getRange(last - n + 1, 1, n, 9).getValues().reverse()
+    .map(r => ({ date: iso(r[0]), user: String(r[1]), ref: String(r[2]), profile: String(r[3]), qty: Number(r[4]),
+      // anciennes lignes sans statut : déjà ajoutées au stock à l'époque
+      status: String(r[5] || 'Reçu'), received: iso(r[6]), id: String(r[7] || ''), bc: String(r[8] || '') }));
 }
 
+// Commande immédiate : bon de commande envoyé tout de suite ; les bruts n'entrent en stock qu'à la réception.
 function validateAchat(p) {
   const lines = (p.lines || []).map(l => ({ profile: String(l.profile), qty: Math.round(Number(l.qty)) }))
     .filter(l => l.qty > 0);
@@ -271,12 +280,7 @@ function validateAchat(p) {
   const ref = String(p.ref || '').slice(0, 120);
   const now = new Date();
   const deltas = {};
-  lines.forEach(l => {
-    deltas[l.profile] = (deltas[l.profile] || 0) + l.qty;
-    achatsSheet().appendRow([now, ACHAT_IDENTIFIANT, ref, l.profile, l.qty]);
-  });
-  changeBruts(deltas, 'Achat' + (ref ? ' – ' + ref : ''));
-  // Bon de commande (arrivée prévue dans une semaine) envoyé par e-mail.
+  lines.forEach(l => { deltas[l.profile] = (deltas[l.profile] || 0) + l.qty; });
   const merged = PROFILES.filter(pr => deltas[pr] > 0).map(pr => ({ profile: pr, qty: deltas[pr] }));
   let bdc = null;
   try {
@@ -286,7 +290,29 @@ function validateAchat(p) {
   } catch (e) {
     mouvementsSheet().appendRow([new Date(), '', 0, 'Bon de commande non envoyé : ' + e.message]);
   }
+  merged.forEach(l => achatsSheet().appendRow([now, ACHAT_IDENTIFIANT, ref, l.profile, l.qty, 'Commandé', '', Utilities.getUuid(), bdc ? bdc.num : '']));
   return { achats: readAchats(), bdc: bdc ? { num: bdc.num, url: bdc.url } : null };
+}
+
+// Réception d'une commande immédiate : une ligne (id) ou tout un bon de commande (bc).
+function receiveAchat(p) {
+  const sh = achatsSheet();
+  const last = sh.getLastRow();
+  if (last < 2) return { error: 'Commande introuvable.' };
+  const vals = sh.getRange(2, 1, last - 1, 9).getValues();
+  const now = new Date();
+  const deltas = {};
+  let n = 0;
+  vals.forEach((r, i) => {
+    const hit = (p.id && String(r[7]) === String(p.id)) || (p.bc && String(r[8]) === String(p.bc));
+    if (!hit || String(r[5]) !== 'Commandé') return;
+    sh.getRange(i + 2, 6, 1, 2).setValues([['Reçu', now]]);
+    deltas[String(r[3])] = (deltas[String(r[3])] || 0) + Number(r[4]);
+    n++;
+  });
+  if (!n) return { error: 'Commande introuvable ou déjà reçue.' };
+  changeBruts(deltas, 'Réception commande' + (p.bc ? ' BC ' + p.bc : ''));
+  return { achats: readAchats(), planning: readPlanning() };
 }
 
 function machinesSheet() {
@@ -620,7 +646,12 @@ function previsionsSheet() {
   if (sh.getRange(1, 4).getValue() !== 'Bruts à acheter') sh.getRange(1, 1, 1, 5).setValues([['Semaine', 'Machine', 'Quantité', 'Bruts à acheter', 'Rappel envoyé le']]);
   return sh;
 }
-const livraisonsSheet = () => sheet(SHEET_LIVRAISONS, ['ID', 'Semaine', 'Section', 'Quantité', 'Statut', 'Reçue le']);
+const LIV_HEAD = ['ID', 'Semaine', 'Section', 'Quantité', 'Statut', 'Reçue le', 'BC'];
+function livraisonsSheet() {
+  const sh = sheet(SHEET_LIVRAISONS, LIV_HEAD);
+  if (sh.getRange(1, 7).getValue() !== 'BC') sh.getRange(1, 1, 1, LIV_HEAD.length).setValues([LIV_HEAD]);
+  return sh;
+}
 
 // Semaine ISO « AAAA-Snn » (lundi au dimanche), format triable.
 function isoWeek(d) {
@@ -668,8 +699,8 @@ function readDeliveries() {
   const sh = livraisonsSheet();
   const last = sh.getLastRow();
   if (last < 2) return [];
-  return sh.getRange(2, 1, last - 1, 6).getValues()
-    .map((r, i) => ({ row: i + 2, id: String(r[0]), week: String(r[1]), profile: String(r[2]), qty: Math.round(Number(r[3]) || 0), status: String(r[4]), received: iso(r[5]) }))
+  return sh.getRange(2, 1, last - 1, 7).getValues()
+    .map((r, i) => ({ row: i + 2, id: String(r[0]), week: String(r[1]), profile: String(r[2]), qty: Math.round(Number(r[3]) || 0), status: String(r[4]), received: iso(r[5]), bc: String(r[6] || '') }))
     .filter(d => d.id && validWeek(d.week) && PROFILES.indexOf(d.profile) >= 0);
 }
 
@@ -678,24 +709,18 @@ function readPlanning() {
 }
 
 // Livraisons prévues dont la semaine est atteinte : ajout au stock de bruts.
-function processDeliveries() {
-  const now = isoWeek(new Date());
-  const due = readDeliveries().filter(d => d.status === 'Prévu' && d.week <= now && d.qty > 0);
-  if (!due.length) return;
-  const sh = livraisonsSheet();
-  due.forEach(d => {
-    sh.getRange(d.row, 5, 1, 2).setValues([['Reçu', new Date()]]);
-    changeBruts({ [d.profile]: d.qty }, 'Livraison prévue ' + d.week.replace('-W', ' S'));
-  });
-}
+// Les livraisons n'entrent plus seules en stock : Morgan valide la réception (receiveDelivery).
+function processDeliveries() {}
 
 // Réception anticipée d'une livraison prévue (bouton « Reçue » dans Achat).
+// Réception d'une commande planifiée : une livraison (id) ou tout un bon de commande (bc).
 function receiveDelivery(p) {
-  const d = readDeliveries().find(x => x.id === String(p.id) && x.status === 'Prévu');
-  if (!d) return { error: 'Livraison introuvable ou déjà reçue.' };
-  livraisonsSheet().getRange(d.row, 5, 1, 2).setValues([['Reçu', new Date()]]);
-  changeBruts({ [d.profile]: d.qty }, 'Livraison reçue (prévue ' + d.week.replace('-W', ' S') + ')');
-  return { planning: readPlanning() };
+  const list = readDeliveries().filter(x => x.status === 'Prévu' && ((p.id && x.id === String(p.id)) || (p.bc && x.bc === String(p.bc))));
+  if (!list.length) return { error: 'Livraison introuvable ou déjà reçue.' };
+  const sh = livraisonsSheet(), now = new Date(), deltas = {};
+  list.forEach(d => { sh.getRange(d.row, 5, 1, 2).setValues([['Reçu', now]]); deltas[d.profile] = (deltas[d.profile] || 0) + d.qty; });
+  changeBruts(deltas, 'Réception commande planifiée' + (p.bc ? ' BC ' + p.bc : ''));
+  return { planning: readPlanning(), achats: readAchats() };
 }
 
 // Remplace tout le planning futur (semaine en cours comprise) : prévisions de machines et livraisons de bruts.
@@ -767,8 +792,8 @@ function sendReminders() {
       const bdc = makeBdc(lines, arrival, 'Planning – ' + f.qty + ' × ' + f.machine + ' ' + weekLabel(f.week), false);
       MailApp.sendEmail({ to: ALERTE_EMAIL, name: EXPEDITEUR, subject: subject + ' – BC ' + bdc.num, body: 'À commander pour ' + f.qty + ' × ' + f.machine + ' (' + weekLabel(f.week) + ') : ' + text,
         htmlBody: html + '<p style="font-family:Arial,sans-serif">Bon de commande <b>' + bdc.num + '</b> en pièce jointe.</p>', attachments: [bdc.blob] });
-      // Livraison attendue la semaine de fabrication : entrée automatique en stock ce lundi-là.
-      lines.forEach(l => livraisonsSheet().appendRow([Utilities.getUuid(), f.week, l.profile, l.qty, 'Prévu', '']));
+      // Livraison attendue la semaine de fabrication ; entrée en stock quand Morgan valide la réception.
+      lines.forEach(l => livraisonsSheet().appendRow([Utilities.getUuid(), f.week, l.profile, l.qty, 'Prévu', '', bdc.num]));
       sh.getRange(f.row, 4, 1, 2).setValues([[text + ' – BC ' + bdc.num, new Date()]]);
       bumpVersion();
     } catch (e) {

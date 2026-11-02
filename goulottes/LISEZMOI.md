@@ -64,6 +64,12 @@ L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) reg
 - **Plan exact** : après le calcul rapide, une recherche exacte (limitée à 0,7 s par section) cherche un plan avec moins de goulottes neuves.
 - **Planning** : bruts nécessaires « sans chutes » (base des achats, prudente) et « avec chutes actuelles » (chutes réparties sur les commandes les plus proches).
 
+## Réception des commandes
+Les bruts commandés n'entrent **plus automatiquement** en stock : Morgan valide la réception.
+- Commande immédiate : Espace méthode → Commande immédiate → « Derniers achats » → **Réception reçue** (par ligne).
+- Commande planifiée : Espace méthode → Planning → colonne « Réception » → **Réception reçue** (tout le bon de commande).
+Les bruts commandés et pas encore reçus sont comptés comme « à venir » dans les estimations du planning.
+
 ## Bons de commande
 Modèle INSIDIX (bandeau, fournisseur, adresses, tableau, totaux HT/TVA/TTC, conditions, pied de page légal) — voir
 `exemple-bon-de-commande.pdf`. Numérotation automatique G00001, G00002…
