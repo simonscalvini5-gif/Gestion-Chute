@@ -366,6 +366,31 @@
   .mcpreview { font-weight: 700; }
   .mcpreview.ko { color: var(--ko); } .mcpreview.ok { color: var(--ok); }
 
+  /* Chargement : X d'INSIDIX en 3D */
+  .loader { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; pointer-events: none;
+    background: rgba(243, 246, 251, .55); backdrop-filter: blur(3px); opacity: 0; transition: opacity .2s; }
+  .loader.on { opacity: 1; pointer-events: auto; }
+  .loader .box { display: grid; justify-items: center; gap: 14px; padding: 26px 30px 20px; border-radius: 20px; background: #ffffff;
+    box-shadow: 0 20px 50px rgba(21, 43, 92, .22); }
+  .loader .scene { width: 84px; height: 84px; perspective: 420px; }
+  .loader .xx { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; animation: xspin 1.6s cubic-bezier(.55,.1,.45,.9) infinite; }
+  .loader .bar { position: absolute; left: 50%; top: 50%; width: 92px; height: 18px; margin: -9px 0 0 -46px; transform-style: preserve-3d; }
+  .loader .bar i { position: absolute; inset: 0; border-radius: 4px; }
+  .loader .bar i:nth-child(1) { transform: translateZ(9px); }
+  .loader .bar i:nth-child(2) { transform: translateZ(-9px); filter: brightness(.7); }
+  .loader .bar i:nth-child(3) { height: 18px; width: 92px; transform: rotateX(90deg) translateZ(9px); filter: brightness(1.15); }
+  .loader .bar i:nth-child(4) { height: 18px; width: 92px; transform: rotateX(-90deg) translateZ(9px); filter: brightness(.6); }
+  .loader .b1 { transform: rotate(45deg); }
+  .loader .b1 i { background: var(--navy); }
+  .loader .b2 { transform: rotate(-45deg) translateZ(1px); }
+  .loader .b2 i { background: var(--yellow); }
+  .loader .shadow { width: 64px; height: 10px; border-radius: 50%; background: radial-gradient(closest-side, rgba(21,43,92,.3), rgba(21,43,92,0)); animation: xshadow 1.6s ease-in-out infinite; }
+  .loader .lab { font: 600 .82rem var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--navy); }
+  .loader .lab b { color: var(--yellow); }
+  @keyframes xspin { 0% { transform: rotateX(-18deg) rotateY(0deg); } 50% { transform: rotateX(18deg) rotateY(180deg) scale(.9); } 100% { transform: rotateX(-18deg) rotateY(360deg); } }
+  @keyframes xshadow { 0%, 100% { transform: scaleX(1); opacity: 1; } 50% { transform: scaleX(.6); opacity: .6; } }
+  @media (prefers-reduced-motion: reduce) { .loader .xx, .loader .shadow { animation-duration: 6s; } }
+
   /* Vue 3D */
   .v3d { position: relative; height: 500px; border-radius: 16px; overflow: hidden; margin: -4px 0 22px;
     background: radial-gradient(120% 140% at 25% 10%, #3a78a8 0%, #24518a 40%, #1a3466 75%, #142a55 100%);
@@ -679,6 +704,17 @@
 </footer>
 
 <div class="toast" id="toast" hidden></div>
+
+<div class="loader" id="loader" role="status" aria-live="polite" aria-hidden="true">
+  <div class="box">
+    <div class="scene"><div class="xx">
+      <div class="bar b1"><i></i><i></i><i></i><i></i></div>
+      <div class="bar b2"><i></i><i></i><i></i><i></i></div>
+    </div></div>
+    <div class="shadow"></div>
+    <div class="lab">Chargement<b>…</b></div>
+  </div>
+</div>
 
 <div class="login" id="login" hidden>
   <form id="loginForm">
@@ -1204,8 +1240,22 @@ function rawCall(action, payload) {
     .then(r => { if (!r.ok) throw new Error(); return r.json(); });
 }
 
+// Indicateur de chargement : affiché si un appel dure plus de 250 ms.
+let loading = 0, loaderTimer = 0;
+function loader(on) {
+  loading = Math.max(0, loading + (on ? 1 : -1));
+  clearTimeout(loaderTimer);
+  const el = $('loader');
+  if (loading) loaderTimer = setTimeout(() => { el.classList.add('on'); el.setAttribute('aria-hidden', 'false'); }, 250);
+  else { el.classList.remove('on'); el.setAttribute('aria-hidden', 'true'); }
+}
+
+let silentCall = false;
 function server(action, payload) {
-  return rawCall(action, payload || {}).then(r => {
+  const show = !silentCall;
+  if (show) loader(true);
+  const done = () => { if (show) loader(false); };
+  return rawCall(action, payload || {}).finally(done).then(r => {
     if (r && r.error === 'auth') { showLogin('Identifiant ou mot de passe incorrect.'); throw new Error('Connexion requise.'); }
     if (r && r.error) throw new Error(r.error);
     if (r && r.state) applyState(r.state);
@@ -1224,10 +1274,13 @@ function applyState(s) {
   renderAll();
 }
 
-async function refresh() {
+async function refresh(silent) {
   if (!login) { showLogin(); return; }
   try {
-    await server('state');
+    silentCall = !!silent;
+    const pr = server('state');
+    silentCall = false;
+    await pr;
     $('status').textContent = 'En ligne';
     $('status').classList.remove('off');
   } catch (e) {
@@ -2240,6 +2293,11 @@ $('planOut').addEventListener('click', e => {
   if (e.target.id === 'cancelPlan') {
     plan = null;
     renderPlan();
+    $('lines').innerHTML = '';
+    addLine();
+    $('planRef').value = '';
+    Object.keys(machineCount).forEach(k => delete machineCount[k]);
+    renderMachines();
     window.scrollTo(0, 0);
     toast('Plan annulé : rien n\'a été modifié dans le stock.');
   }
@@ -2396,8 +2454,8 @@ renderAll();
 moveInk();
 if (document.fonts) document.fonts.ready.then(moveInk);
 refresh();
-setInterval(() => { if (!document.hidden && $('login').hidden) refresh(); }, 30000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && $('login').hidden) refresh(); });
+setInterval(() => { if (!document.hidden && $('login').hidden) refresh(true); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && $('login').hidden) refresh(true); });
 </script>
 </body>
 </html>
