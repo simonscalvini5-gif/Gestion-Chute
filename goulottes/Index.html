@@ -185,6 +185,37 @@
   .barwrap { position: relative; }
   .saw { position: absolute; top: 4px; bottom: 0; width: 3px; left: 0; background: var(--yellow); border-radius: 2px; opacity: 0;
     box-shadow: 0 0 12px 3px rgba(242,183,5,.75); pointer-events: none; }
+  /* ---------- Découpe pas à pas ---------- */
+  .guide { position: fixed; inset: 0; z-index: 45; background: var(--bg); display: flex; flex-direction: column; overflow-y: auto; }
+  body.guiding { overflow: hidden; }
+  .gtop { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 16px; padding-bottom: 12px; color: var(--ink); width: 100%; }
+  .gprog { height: 6px; background: var(--bg-soft); flex: none; }
+  .gprog i { display: block; height: 100%; background: var(--yellow); transition: width .3s; }
+  .gbody { flex: 1; width: 100%; padding-top: 28px; padding-bottom: 20px; outline: none; }
+  .gk { font: 700 .82rem var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--sky); }
+  .gk.ok, .gbody[data-type="done"] .gk { color: var(--ok); } .gk.ko { color: var(--ko); }
+  .gsub { color: var(--muted); margin-top: 2px; }
+  .gbig { font-size: clamp(2rem, 7vw, 4rem); line-height: 1.05; margin: 14px 0 12px; }
+  .gbig small { font-size: .45em; color: var(--muted); }
+  .gbig.ok { color: var(--ok); } .gbig.ko { color: var(--ko); }
+  .gtxt { font-size: 1.15rem; color: var(--ink); max-width: 46em; margin: 8px 0; }
+  .gtxt.muted { color: var(--muted); font-size: 1rem; }
+  .gbar { height: 64px; margin: 26px 0 8px; animation: none !important; }
+  .gbar div { font-size: .9rem; }
+  .gbar .done { opacity: .28; }
+  .gbar .cur { box-shadow: inset 0 0 0 4px var(--yellow); filter: brightness(1.1); }
+  .gsplit { display: grid; grid-template-columns: 160px 1fr; gap: 24px; align-items: center; }
+  .gphoto { width: 56px; height: 56px; object-fit: contain; flex: none; }
+  .gphoto.big { width: 160px; height: 160px; }
+  .glist, .gmark { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
+  .glist li { display: flex; gap: 16px; align-items: center; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); }
+  .gmark li { display: flex; gap: 16px; align-items: center; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); font-size: 1.15rem; }
+  .gmark li .num { margin-left: auto; }
+  .tag.big { font-size: 1.15rem; padding: 4px 12px; }
+  .gfoot { display: flex; justify-content: space-between; gap: 12px; padding-top: 14px; padding-bottom: 22px; border-top: 1px solid var(--line); width: 100%; position: sticky; bottom: 0; background: var(--bg); }
+  .gfoot .btn { padding: 16px 26px; font-size: 1.05rem; }
+  .gfoot .gnext { flex: 1; max-width: 420px; }
+  @media (max-width: 600px) { .gsplit { grid-template-columns: 1fr; } .gphoto.big { width: 110px; height: 110px; } .gfoot .btn { padding: 14px 16px; } }
   .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: .8rem; color: var(--muted); }
   .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
 
@@ -619,6 +650,7 @@
     </section>
 
     <section id="planOut" hidden></section>
+    <div id="guide" class="guide" role="dialog" aria-modal="true" aria-label="Découpe pas à pas" hidden></div>
   </div>
 
   <!-- STOCK -->
@@ -1687,7 +1719,7 @@ function brutNeeds(bars) {
 function brutAlert(bars) {
   const miss = brutNeeds(bars).filter(r => r.missing > 0);
   if (!miss.length) return '';
-  return `<div class="alert" style="margin:0 0 18px"><b>Bruts insuffisants :</b> ${miss.map(r => `${short(r.profile)} : ${r.need} nécessaire(s), ${r.stock} en stock, <b>il en manque ${r.missing}</b>`).join(' · ')}. Le plan peut être imprimé, mais la découpe ne pourra être validée qu'une fois les bruts ajoutés au stock.</div>`;
+  return `<div class="alert" style="margin:0 0 18px"><b>Bruts insuffisants :</b> ${miss.map(r => `${short(r.profile)} : ${r.need} nécessaire(s), ${r.stock} en stock, <b>il en manque ${r.missing}</b>`).join(' · ')}. Le plan peut être consulté, mais la découpe ne pourra être validée qu'une fois les bruts ajoutés au stock.</div>`;
 }
 
 function summarise(bars) {
@@ -1755,13 +1787,12 @@ function renderPlan() {
     html += '</div>';
   });
   html += `<div class="actions">
-      <button type="button" class="btn" id="pdfBtn">Générer le PDF</button>
+      <button type="button" class="btn" id="guideBtn">${plan.guideStep ? 'Reprendre le pas à pas' : 'Démarrer la découpe pas à pas'}</button>
       ${plan.applied ? '<span class="muted" style="align-self:center">Stock mis à jour ✓</span>'
         : brutNeeds(plan.bars).some(r => r.missing > 0) ? '<button type="button" class="btn ghost" disabled title="Bruts insuffisants">Validation bloquée : bruts insuffisants</button>'
         : '<button type="button" class="btn ghost" id="applyBtn">Valider : mettre le stock à jour</button>'}
       <button type="button" class="btn ghost" id="cancelPlan">${plan.applied ? 'Fermer' : 'Annuler le plan'}</button>
     </div>
-    <div id="pdfLink"></div>
     </div>`;
   out.innerHTML = html;
   out.hidden = false;
@@ -1835,25 +1866,204 @@ function planPayload() {
   };
 }
 
-async function makePdf(btn) {
-  btn.disabled = true;
-  btn.textContent = 'Création du PDF…';
-  try {
-    const payload = planPayload();
-    let r;
-    try {
-      if (plan3d) payload.image = plan3d.snapshot();
-      r = await server('pdf', payload);
-    } catch (err) {
-      if (!payload.image) throw err;
-      delete payload.image;
-      r = await server('pdf', payload);
+/* ---------- Découpe pas à pas ---------- */
+// L'opérateur est guidé du début à la fin : ce qu'il prend, ce qu'il coupe, ce qu'il range, ce qu'il jette.
+const Guide = (() => {
+  let steps = [], k = 0, busy = false;
+
+  function orderedBars() {
+    const list = [];
+    PROFILES.forEach(pr => plan.bars.forEach((b, i) => { if (b.profile === pr) list.push(i); }));
+    return list;
+  }
+
+  function build() {
+    const order = orderedBars();
+    const out = [{ type: 'prep' }];
+    order.forEach((bi, n) => {
+      const b = plan.bars[bi];
+      out.push({ type: 'take', bi, n, total: order.length });
+      b.pieces.forEach((len, j) => out.push({ type: 'cut', bi, j, n, total: order.length }));
+      if (remainderOf(b.pieces, b.length) > 0) out.push({ type: 'rest', bi, n, total: order.length });
+    });
+    out.push({ type: 'validate' });
+    if (plan.bars.some(isKept)) out.push({ type: 'mark' });
+    out.push({ type: 'done' });
+    return out;
+  }
+
+  const isKept = b => { const r = remainderOf(b.pieces, b.length); return r > 0 && r >= mk(b.profile); };
+  const src = b => b.source === 'chute' ? `la chute <b>#${b.num}</b> de ${b.length} mm` : `une goulotte neuve de ${b.length} mm`;
+
+  function bar(b, j, mode) {
+    const total = b.length, rest = remainderOf(b.pieces, total), pct = v => (v / total * 100) + '%';
+    let h = '';
+    b.pieces.forEach((len, i) => {
+      const st = mode === 'cut' ? (i < j ? ' done' : i === j ? ' cur' : '') : mode === 'take' ? '' : ' done';
+      h += `<div class="piece${i % 2 ? ' alt' : ''}${st}" style="width:${pct(len)}">${len}</div>`;
+      if (i < b.pieces.length - 1 || rest > 0) h += `<div class="kerf" style="width:${pct(settings.kerf)}"></div>`;
+    });
+    if (rest > 0) h += `<div class="${isKept(b) ? 'rest' : 'scrap'}${mode === 'rest' ? ' cur' : ''}" style="width:${pct(rest)}">${rest}</div>`;
+    return `<div class="bar gbar">${h}</div>`;
+  }
+
+  function head(kicker, s, cls) {
+    const b = plan.bars[s.bi];
+    return `<div class="gk ${cls || ''}">${kicker}</div>
+      <div class="gsub">${esc(short(b.profile))} · goulotte ${s.n + 1} / ${s.total}</div>`;
+  }
+
+  function body(s) {
+    if (s.type === 'prep') {
+      const rows = PROFILES.map(pr => {
+        const list = plan.bars.filter(b => b.profile === pr);
+        if (!list.length) return '';
+        const nb = list.filter(b => b.source === 'barre').length;
+        const ch = list.filter(b => b.source === 'chute');
+        return `<li>${ductSVG(pr, 'gphoto')}<div><b>${esc(short(pr))}</b><br>
+          ${nb ? `${nb} goulotte${nb > 1 ? 's' : ''} neuve${nb > 1 ? 's' : ''} (${settings.barLength} mm) dans les bruts` : ''}
+          ${nb && ch.length ? '<br>' : ''}
+          ${ch.length ? `Chute${ch.length > 1 ? 's' : ''} du stock : ${ch.map(c => `<span class="tag">#${c.num}</span> ${c.length} mm`).join(' · ')}` : ''}</div></li>`;
+      }).join('');
+      const n = plan.bars.reduce((t, b) => t + b.pieces.length, 0);
+      return `<div class="gk">Préparer</div>
+        <h2 class="gbig">Rassemblez la matière</h2>
+        <ul class="glist">${rows}</ul>
+        <p class="gtxt">${n} pièce${n > 1 ? 's' : ''} à couper. Trait de scie : ${settings.kerf} mm, déjà compté dans le plan.</p>`;
     }
-    $('pdfLink').innerHTML = `<p><a class="btn ghost" href="${esc(r.url)}" target="_blank" rel="noopener">Ouvrir le PDF</a></p>`;
-  } catch (e) { toast(e.message); }
-  btn.disabled = false;
-  btn.textContent = 'Générer le PDF';
-}
+    if (s.type === 'take') {
+      const b = plan.bars[s.bi];
+      return `${head('Prendre', s)}
+        <div class="gsplit">${ductSVG(b.profile, 'gphoto big')}
+        <div><h2 class="gbig">${b.source === 'chute' ? `Chute <span class="tag">#${b.num}</span>` : 'Goulotte neuve'}</h2>
+        <p class="gtxt">Prenez ${src(b)} en <b>${esc(short(b.profile))}</b>${b.source === 'chute' ? ' dans le stock de chutes' : ' dans les bruts'}.</p>
+        <p class="gtxt">Elle donnera ${b.pieces.length} pièce${b.pieces.length > 1 ? 's' : ''} : ${b.pieces.map(x => x + ' mm').join(' · ')}.</p></div></div>
+        ${bar(b, -1, 'take')}`;
+    }
+    if (s.type === 'cut') {
+      const b = plan.bars[s.bi], len = b.pieces[s.j];
+      const before = usedLength(b.pieces.slice(0, s.j), b.length);
+      const left = b.length - before;
+      const exact = left === len;
+      return `${head(`Couper · pièce ${s.j + 1} / ${b.pieces.length}`, s)}
+        <h2 class="gbig num">${len} <small>mm</small></h2>
+        <p class="gtxt">${exact
+          ? `Le morceau restant fait exactement ${len} mm : <b>pas de coupe</b>, c'est la pièce.`
+          : `Mesurez <b>${len} mm</b> depuis le bout et coupez. Il vous reste ${left} mm avant la coupe.`}</p>
+        <p class="gtxt muted">Posez la pièce avec les autres ${esc(short(b.profile))}.</p>
+        ${bar(b, s.j, 'cut')}`;
+    }
+    if (s.type === 'rest') {
+      const b = plan.bars[s.bi], rest = remainderOf(b.pieces, b.length);
+      if (isKept(b)) return `${head('Ranger la chute', s, 'ok')}
+        <h2 class="gbig num ok">${rest} <small>mm</small></h2>
+        <p class="gtxt">${b.keptNum
+          ? `Écrivez <span class="tag big">#${b.keptNum}</span> et « ${rest} mm » sur la chute, puis rangez-la avec les ${esc(short(b.profile))}.`
+          : `Gardez cette chute ${esc(short(b.profile))} de côté. Son numéro vous sera donné à la fin, au moment de la ranger.`}</p>
+        ${bar(b, -1, 'rest')}`;
+      return `${head('Jeter', s, 'ko')}
+        <h2 class="gbig num ko">${rest} <small>mm</small></h2>
+        <p class="gtxt">Ce reste est trop court pour être gardé (moins de ${mk(b.profile)} mm) : <b>jetez-le</b>.</p>
+        ${bar(b, -1, 'rest')}`;
+    }
+    if (s.type === 'validate') {
+      if (plan.applied) return `<div class="gk">Valider</div><h2 class="gbig">Stock déjà mis à jour ✓</h2>`;
+      const miss = brutNeeds(plan.bars).some(r => r.missing > 0);
+      return `<div class="gk">Valider</div>
+        <h2 class="gbig">Toutes les coupes sont faites ?</h2>
+        <p class="gtxt">La validation retire du stock les goulottes et chutes utilisées et enregistre les nouvelles chutes.</p>
+        ${miss ? brutAlert(plan.bars) : ''}`;
+    }
+    if (s.type === 'mark') {
+      const list = orderedBars().map(i => plan.bars[i]).filter(isKept);
+      return `<div class="gk">Repérer les chutes</div>
+        <h2 class="gbig">Écrivez le numéro sur chaque chute</h2>
+        <ul class="gmark">${list.map(b => `<li><span class="tag big">#${b.keptNum || '?'}</span><b>${esc(short(b.profile))}</b><span class="num">${remainderOf(b.pieces, b.length)} mm</span></li>`).join('')}</ul>
+        <p class="gtxt">Puis rangez-les dans le stock de chutes, avec leur section.</p>`;
+    }
+    const n = plan.bars.reduce((t, b) => t + b.pieces.length, 0);
+    return `<div class="gk">Terminé</div>
+      <h2 class="gbig ok">Découpe terminée ✓</h2>
+      <p class="gtxt">${n} pièce${n > 1 ? 's' : ''} coupée${n > 1 ? 's' : ''}${plan.ref ? ' pour ' + esc(plan.ref) : ''}. Le stock est à jour.</p>`;
+  }
+
+  function render() {
+    const s = steps[k], el = $('guide');
+    const last = k === steps.length - 1;
+    let next = `<button type="button" class="btn gnext" data-g="next">${k === 0 ? 'C\'est prêt, on commence' : 'Fait, suivant →'}</button>`;
+    if (s.type === 'validate' && !plan.applied) {
+      next = brutNeeds(plan.bars).some(r => r.missing > 0)
+        ? '<button type="button" class="btn gnext" disabled>Validation bloquée : bruts insuffisants</button>'
+        : `<button type="button" class="btn gnext" data-g="apply"${busy ? ' disabled' : ''}>${busy ? 'Enregistrement…' : 'Valider : mettre le stock à jour'}</button>`;
+    }
+    if (last) next = '<button type="button" class="btn gnext" data-g="close">Fermer</button>';
+    el.innerHTML = `<div class="gtop wrap">
+        <div><b>${esc(plan.ref || 'Découpe')}</b> <span class="muted">· étape ${k + 1} / ${steps.length}</span></div>
+        <button type="button" class="btn ghost small" data-g="close">${last ? 'Fermer' : 'Quitter'}</button>
+      </div>
+      <div class="gprog"><i style="width:${(k + 1) / steps.length * 100}%"></i></div>
+      <div class="gbody wrap" data-type="${s.type}">${body(s)}</div>
+      <div class="gfoot wrap">
+        <button type="button" class="btn ghost" data-g="prev"${k === 0 ? ' disabled' : ''}>← Retour</button>
+        ${next}
+      </div>`;
+    plan.guideStep = k;
+    el.querySelector('.gbody').focus({ preventScroll: true });
+  }
+
+  function go(d) {
+    if (busy) return;
+    const s = steps[k];
+    if (d > 0 && s.type === 'validate' && !plan.applied) return;
+    k = Math.max(0, Math.min(steps.length - 1, k + d));
+    render();
+  }
+
+  async function apply() {
+    busy = true; render();
+    try {
+      const r = await server('applyPlan', planPayload());
+      plan.bars.forEach((b, i) => { b.keptNum = r.keptNums[i]; });
+      plan.applied = true;
+      busy = false;
+      renderPlan();
+      k++; render();
+    } catch (e) { busy = false; render(); toast(e.message); }
+  }
+
+  function open() {
+    if (!plan) return;
+    steps = build();
+    k = Math.min(plan.guideStep || 0, steps.length - 1);
+    $('guide').hidden = false;
+    document.body.classList.add('guiding');
+    render();
+  }
+
+  function close() {
+    if (busy) return;
+    $('guide').hidden = true;
+    document.body.classList.remove('guiding');
+    if (plan) renderPlan();
+  }
+
+  $('guide').addEventListener('click', e => {
+    const b = e.target.closest('button[data-g]');
+    if (!b || b.disabled) return;
+    const g = b.dataset.g;
+    if (g === 'next') go(1);
+    else if (g === 'prev') go(-1);
+    else if (g === 'apply') apply();
+    else if (g === 'close') close();
+  });
+  document.addEventListener('keydown', e => {
+    if ($('guide').hidden) return;
+    if (e.key === 'Escape') close();
+    else if (e.key === 'ArrowLeft') go(-1);
+    else if ((e.key === 'ArrowRight' || e.key === 'Enter') && !(steps[k].type === 'validate' && !plan.applied) && k < steps.length - 1) { e.preventDefault(); go(1); }
+  });
+  return { open, close };
+})();
 
 async function applyPlan(btn) {
   if (!btn.dataset.armed) { btn.dataset.armed = '1'; btn.textContent = 'Confirmer : les coupes sont faites'; btn.classList.add('danger'); return; }
@@ -1866,7 +2076,7 @@ async function applyPlan(btn) {
     const n = r.keptNums.filter(Boolean);
     toast(!n.length ? 'Stock mis à jour.'
       : n.length <= 8 ? `Stock mis à jour. Marquez les chutes : ${n.map(x => '#' + x).join(', ')}.`
-      : `Stock mis à jour. ${n.length} chutes à marquer : numéros sur le plan et dans le PDF.`);
+      : `Stock mis à jour. ${n.length} chutes à marquer : numéros affichés sur le plan.`);
   } catch (e) {
     toast(e.message);
     btn.disabled = false;
@@ -2481,9 +2691,10 @@ $('planOut').addEventListener('click', e => {
     plan3d.reset();
     document.querySelectorAll('#v3d button[data-f3]').forEach(b => b.setAttribute('aria-pressed', String(!b.dataset.f3)));
   }
-  if (e.target.id === 'pdfBtn') makePdf(e.target);
+  if (e.target.closest('#guideBtn')) Guide.open();
   if (e.target.id === 'applyBtn') applyPlan(e.target);
   if (e.target.id === 'cancelPlan') {
+    Guide.close();
     plan = null;
     renderPlan();
     $('lines').innerHTML = '';
