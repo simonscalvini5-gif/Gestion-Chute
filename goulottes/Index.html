@@ -366,30 +366,17 @@
   .mcpreview { font-weight: 700; }
   .mcpreview.ko { color: var(--ko); } .mcpreview.ok { color: var(--ok); }
 
-  /* Chargement : X d'INSIDIX en 3D */
+  /* Chargement : anneau fin bleu → jaune */
   .loader { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; pointer-events: none;
-    background: rgba(243, 246, 251, .55); backdrop-filter: blur(3px); opacity: 0; transition: opacity .2s; }
+    background: rgba(255, 255, 255, .45); opacity: 0; transition: opacity .25s; }
   .loader.on { opacity: 1; pointer-events: auto; }
-  .loader .box { display: grid; justify-items: center; gap: 14px; padding: 26px 30px 20px; border-radius: 20px; background: #ffffff;
-    box-shadow: 0 20px 50px rgba(21, 43, 92, .22); }
-  .loader .scene { width: 84px; height: 84px; perspective: 420px; }
-  .loader .xx { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; animation: xspin 1.6s cubic-bezier(.55,.1,.45,.9) infinite; }
-  .loader .bar { position: absolute; left: 50%; top: 50%; width: 92px; height: 18px; margin: -9px 0 0 -46px; transform-style: preserve-3d; }
-  .loader .bar i { position: absolute; inset: 0; border-radius: 4px; }
-  .loader .bar i:nth-child(1) { transform: translateZ(9px); }
-  .loader .bar i:nth-child(2) { transform: translateZ(-9px); filter: brightness(.7); }
-  .loader .bar i:nth-child(3) { height: 18px; width: 92px; transform: rotateX(90deg) translateZ(9px); filter: brightness(1.15); }
-  .loader .bar i:nth-child(4) { height: 18px; width: 92px; transform: rotateX(-90deg) translateZ(9px); filter: brightness(.6); }
-  .loader .b1 { transform: rotate(45deg); }
-  .loader .b1 i { background: var(--navy); }
-  .loader .b2 { transform: rotate(-45deg) translateZ(1px); }
-  .loader .b2 i { background: var(--yellow); }
-  .loader .shadow { width: 64px; height: 10px; border-radius: 50%; background: radial-gradient(closest-side, rgba(21,43,92,.3), rgba(21,43,92,0)); animation: xshadow 1.6s ease-in-out infinite; }
-  .loader .lab { font: 600 .82rem var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--navy); }
-  .loader .lab b { color: var(--yellow); }
-  @keyframes xspin { 0% { transform: rotateX(-18deg) rotateY(0deg); } 50% { transform: rotateX(18deg) rotateY(180deg) scale(.9); } 100% { transform: rotateX(-18deg) rotateY(360deg); } }
-  @keyframes xshadow { 0%, 100% { transform: scaleX(1); opacity: 1; } 50% { transform: scaleX(.6); opacity: .6; } }
-  @media (prefers-reduced-motion: reduce) { .loader .xx, .loader .shadow { animation-duration: 6s; } }
+  .loader .ring { width: 46px; height: 46px; filter: drop-shadow(0 4px 10px rgba(31,63,132,.18)); border-radius: 50%;
+    background: conic-gradient(from 0deg, rgba(31,63,132,0) 0deg, var(--navy) 250deg, var(--yellow) 340deg, rgba(242,183,5,0) 360deg);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+    animation: ring .9s linear infinite; }
+  @keyframes ring { to { transform: rotate(1turn); } }
+  @media (prefers-reduced-motion: reduce) { .loader .ring { animation-duration: 2.5s; } }
 
   /* Vue 3D */
   .v3d { position: relative; height: 500px; border-radius: 16px; overflow: hidden; margin: -4px 0 22px;
@@ -704,16 +691,7 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<div class="loader" id="loader" role="status" aria-live="polite" aria-hidden="true">
-  <div class="box">
-    <div class="scene"><div class="xx">
-      <div class="bar b1"><i></i><i></i><i></i><i></i></div>
-      <div class="bar b2"><i></i><i></i><i></i><i></i></div>
-    </div></div>
-    <div class="shadow"></div>
-    <div class="lab">Chargement<b>…</b></div>
-  </div>
-</div>
+<div class="loader" id="loader" role="status" aria-live="polite" aria-hidden="true" aria-label="Chargement"><div class="ring"></div></div>
 
 <div class="login" id="login" hidden>
   <form id="loginForm">
