@@ -534,17 +534,39 @@
   .mcpreview { font-weight: 700; }
   .mcpreview.ko { color: var(--ko); } .mcpreview.ok { color: var(--ok); }
 
-  /* Chargement : anneau fin bleu → jaune */
+  /* Chargement : le logo TDM se trace au néon, la barre jaune fait office de scanner */
   .loader { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; pointer-events: none;
-    background: rgba(255, 255, 255, .45); opacity: 0; transition: opacity .25s; }
+    background: rgba(246, 248, 252, .62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); opacity: 0; transition: opacity .3s; }
   .loader.on { opacity: 1; pointer-events: auto; }
-  .loader .ring { width: 46px; height: 46px; filter: drop-shadow(0 4px 10px rgba(31,63,132,.18)); border-radius: 50%;
-    background: conic-gradient(from 0deg, rgba(31,63,132,0) 0deg, var(--navy) 250deg, var(--yellow) 340deg, rgba(242,183,5,0) 360deg);
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
-    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
-    animation: ring .9s linear infinite; }
-  @keyframes ring { to { transform: rotate(1turn); } }
-  @media (prefers-reduced-motion: reduce) { .loader .ring { animation-duration: 2.5s; } }
+  .tdmload { position: relative; width: 200px; display: grid; justify-items: center; gap: 14px; }
+  .tdmload::before { content: ""; position: absolute; left: 50%; top: 50%; width: 260px; height: 260px; transform: translate(-50%, -50%); border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0 70%, rgba(31,63,132,.35) 85%, rgba(242,183,5,.9) 88%, transparent 89%);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+    animation: ring 1.6s linear infinite; opacity: .9; }
+  .tdmload::after { content: ""; position: absolute; left: 50%; top: 50%; width: 232px; height: 232px; transform: translate(-50%, -50%); border-radius: 50%;
+    border: 1px dashed rgba(31,63,132,.22); animation: ringback 9s linear infinite; }
+  @keyframes ringback { to { transform: translate(-50%, -50%) rotate(-1turn); } }
+  .tdmload svg { width: 200px; height: auto; overflow: visible; }
+  .tdmload .base { fill: none; stroke: rgba(31,63,132,.1); stroke-width: 7; stroke-linejoin: round; }
+  .tdmload .draw { fill: none; stroke: var(--navy); stroke-width: 7; stroke-linejoin: round; stroke-dasharray: 100; stroke-dashoffset: 100;
+    filter: drop-shadow(0 0 6px rgba(47,106,196,.55)); animation: tdmdraw 2.4s cubic-bezier(.65,0,.35,1) infinite; }
+  .tdmload .spark { fill: none; stroke: #9fd0ff; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 6 94;
+    filter: drop-shadow(0 0 4px #6fb6ff) drop-shadow(0 0 10px #2f6ac4); animation: tdmspark 1.2s linear infinite; }
+  .tdmload .draw:nth-child(5), .tdmload .spark:nth-child(8) { animation-delay: .12s; }
+  .tdmload .draw:nth-child(6), .tdmload .spark:nth-child(9) { animation-delay: .24s; }
+  @keyframes tdmdraw { 0% { stroke-dashoffset: 100; } 45%, 60% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -100; } }
+  @keyframes tdmspark { to { stroke-dashoffset: -100; } }
+  .tdmload .scan { position: relative; width: 84px; height: 9px; border-radius: 6px; background: var(--yellow); overflow: hidden;
+    box-shadow: 0 0 14px rgba(242,183,5,.7); animation: tdmbar 2.4s ease-in-out infinite; }
+  .tdmload .scan::after { content: ""; position: absolute; top: 0; bottom: 0; width: 30%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
+    animation: tdmshine 1.2s linear infinite; }
+  @keyframes tdmbar { 0%, 100% { transform: scaleX(.35); opacity: .7; } 50% { transform: scaleX(1); opacity: 1; } }
+  @keyframes tdmshine { from { left: -30%; } to { left: 100%; } }
+  .tdmload small { font: 600 .68rem var(--font); letter-spacing: .42em; color: var(--navy); opacity: .7; padding-left: .42em; }
+  .tdmload small i { font-style: normal; animation: tdmdot 1.2s infinite; } .tdmload small i:nth-child(2) { animation-delay: .2s; } .tdmload small i:nth-child(3) { animation-delay: .4s; }
+  @keyframes tdmdot { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
+  @keyframes ring { to { transform: translate(-50%, -50%) rotate(1turn); } }
+  @media (prefers-reduced-motion: reduce) { .tdmload *, .tdmload::before, .tdmload::after { animation-duration: 4s !important; } }
 
   /* Vue 3D */
   .v3d { position: relative; height: 500px; border-radius: 16px; overflow: hidden; margin: -4px 0 22px;
@@ -936,7 +958,7 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<div class="loader" id="loader" role="status" aria-live="polite" aria-hidden="true" aria-label="Chargement"><div class="ring"></div></div>
+<div class="loader" id="loader" role="status" aria-live="polite" aria-hidden="true" aria-label="Chargement"><div class="tdmload"><svg viewBox="0 0 300 90" aria-hidden="true"><path class="base" pathLength="100" d="M6 8H86M46 8V82"/><path class="base" pathLength="100" d="M108 8V82H146C176 82 192 66 192 45S176 8 146 8Z"/><path class="base" pathLength="100" d="M214 82V8L254 66L294 8V82"/><path class="draw" pathLength="100" d="M6 8H86M46 8V82"/><path class="draw" pathLength="100" d="M108 8V82H146C176 82 192 66 192 45S176 8 146 8Z"/><path class="draw" pathLength="100" d="M214 82V8L254 66L294 8V82"/><path class="spark" pathLength="100" d="M6 8H86M46 8V82"/><path class="spark" pathLength="100" d="M108 8V82H146C176 82 192 66 192 45S176 8 146 8Z"/><path class="spark" pathLength="100" d="M214 82V8L254 66L294 8V82"/></svg><div class="scan"></div><small>CHARGEMENT<i>.</i><i>.</i><i>.</i></small></div></div>
 
 <div class="login" id="login" hidden>
   <form id="loginForm">
