@@ -348,9 +348,28 @@ function readSettings() {
     barLength: map.barLength > 0 ? map.barLength : DEFAULT_SETTINGS.barLength,
     kerf: map.kerf >= 0 ? map.kerf : DEFAULT_SETTINGS.kerf,
     minKeep: map.minKeep >= 0 ? map.minKeep : DEFAULT_SETTINGS.minKeep,
-    nextNum: map.nextNum > 0 ? map.nextNum : 1
+    nextNum: map.nextNum > 0 ? map.nextNum : 1,
+    minKeepSec: readMinKeepSec()
   };
 }
+
+// Chute mini gardée par section : la valeur saisie, sinon la plus petite pièce de cette section dans les machines
+// (un reste plus court ne pourra jamais servir).
+function autoMinKeep() {
+  const out = {};
+  const m = readMachines();
+  Object.keys(m).forEach(n => m[n].forEach(r => { if (!(out[r.profile] <= r.length)) out[r.profile] = r.length; }));
+  return out;
+}
+function readMinKeepSec() {
+  let saved = {};
+  try { saved = JSON.parse(String(readKey('minKeepSec') || '{}')); } catch (e) { saved = {}; }
+  const auto = autoMinKeep();
+  const out = {};
+  PROFILES.forEach(p => { out[p] = saved[p] >= 0 ? Number(saved[p]) : auto[p] >= 0 ? auto[p] : DEFAULT_SETTINGS.minKeep; });
+  return out;
+}
+const minKeepFor = (s, profile) => (s.minKeepSec && s.minKeepSec[profile] >= 0) ? s.minKeepSec[profile] : s.minKeep;
 
 function writeSettings(s) {
   const sh = settingsSheet();
@@ -390,7 +409,7 @@ function readState() {
   const s = readSettings();
   return {
     version: Date.now(),
-    settings: { barLength: s.barLength, kerf: s.kerf, minKeep: s.minKeep },
+    settings: { barLength: s.barLength, kerf: s.kerf, minKeep: s.minKeep, minKeepSec: s.minKeepSec, minKeepAuto: autoMinKeep() },
     chutes: readChutes(),
     history: readHistory(),
     machines: readMachines(),
@@ -438,7 +457,7 @@ function cut(p) {
   }
 
   const remainder = remainderAfter(sourceLength, len, s.kerf);
-  const kept = remainder > 0 && remainder >= s.minKeep;
+  const kept = remainder > 0 && remainder >= minKeepFor(s, p.profile);
   const now = new Date();
   let keptNum = '';
   if (kept) {
@@ -459,7 +478,7 @@ function miscut(p) {
   if (PROFILES.indexOf(p.profile) < 0 || !(len > 0) || len > s.barLength) {
     return { error: 'Longueur invalide (1 à ' + s.barLength + ' mm).' };
   }
-  const kept = len >= s.minKeep;
+  const kept = len >= minKeepFor(s, p.profile);
   const now = new Date();
   let num = '';
   if (kept) {
@@ -468,7 +487,7 @@ function miscut(p) {
     writeSettings(s);
   }
   historySheet().appendRow([now, p.profile, len, 'Erreur de coupe', '', '', len, kept ? 'Oui' : 'Non', num, Utilities.getUuid(), '']);
-  return { kept: kept, num: kept ? num : null, minKeep: s.minKeep };
+  return { kept: kept, num: kept ? num : null, minKeep: minKeepFor(s, p.profile) };
 }
 
 function addChute(p) {
@@ -494,6 +513,11 @@ function saveSettings(p) {
   const n = { barLength: Math.round(Number(p.barLength)), kerf: Number(p.kerf), minKeep: Math.round(Number(p.minKeep)) };
   if (!(n.barLength > 0) || !(n.kerf >= 0) || !(n.minKeep >= 0)) return { error: 'Paramètres invalides.' };
   writeSettings({ barLength: n.barLength, kerf: n.kerf, minKeep: n.minKeep, nextNum: s.nextNum });
+  if (p.minKeepSec) {
+    const m = {};
+    PROFILES.forEach(pr => { const v = p.minKeepSec[pr]; if (v !== '' && v !== null && v !== undefined && Number(v) >= 0) m[pr] = Math.round(Number(v)); });
+    writeKey('minKeepSec', JSON.stringify(m));
+  }
   return {};
 }
 
@@ -549,7 +573,7 @@ function applyPlan(p) {
   checked.forEach(c => {
     if (c.b.source === 'chute') sh.deleteRow(findRow(String(c.b.chuteId)));
     const remainder = c.total - usedLength(c.pieces, c.total, s.kerf);
-    const keep = remainder > 0 && remainder >= s.minKeep;
+    const keep = remainder > 0 && remainder >= minKeepFor(s, c.b.profile);
     let num = '';
     if (keep) {
       num = s.nextNum++;
@@ -600,7 +624,7 @@ function makePdf(p) {
     list.forEach((b, i) => {
       const total = Number(b.length);
       const remainder = total - usedLength(b.pieces, total, s.kerf);
-      const keep = remainder > 0 && remainder >= s.minKeep;
+      const keep = remainder > 0 && remainder >= minKeepFor(s, pr);
       const source = b.source === 'chute' ? 'Chute n° ' + b.num + ' (' + total + ' mm)' : 'Goulotte neuve (' + total + ' mm)';
       let cells = '';
       b.pieces.forEach((len, k) => {

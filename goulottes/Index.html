@@ -371,6 +371,11 @@
   #undoDetail ul { margin: 6px 0 12px; padding-left: 18px; color: var(--ink); }
   tr.cancelled td { color: #a3abb8; text-decoration: line-through; }
   tr.cancelled td:last-child { text-decoration: none; }
+  .minkeep { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 4px; }
+  .minkeep label { display: flex; align-items: center; gap: 8px; }
+  .minkeep .duct-photo { width: 44px; height: 30px; object-fit: contain; }
+  .minkeep small { display: block; font-size: .74rem; color: var(--muted); margin-top: 4px; }
+  @media (max-width: 800px) { .minkeep { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .addtitle { margin: 22px 0 10px; font: 700 1.05rem var(--font-head); color: var(--ink); }
   .stockalert { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; margin-bottom: 16px;
     background: var(--ko-bg); color: var(--ko); border: 1px solid #f2c4bf; }
@@ -731,10 +736,14 @@
           <div class="settings">
             <div><label for="setBar">Goulotte brute (mm)</label><input id="setBar" type="number" min="1"></div>
             <div><label for="setKerf">Trait de scie (mm)</label><input id="setKerf" type="number" min="0" step="0.5"></div>
-            <div><label for="setMin">Chute mini gardée (mm)</label><input id="setMin" type="number" min="0"></div>
           </div>
-          <button class="btn" type="submit">Enregistrer</button>
-          <p class="muted" style="margin-bottom:0">Un reste plus court que la « chute mini » est compté comme déchet et n'entre pas en stock. Ces réglages s'appliquent à tous les postes.</p>
+            <h3 class="addtitle" style="margin-top:4px">Chute mini gardée par section</h3>
+          <div class="minkeep" id="minKeepRows"></div>
+          <div class="actions">
+            <button class="btn" type="submit">Enregistrer</button>
+            <button class="btn ghost" type="button" id="minAuto">Recalculer depuis les machines</button>
+          </div>
+          <p class="muted" style="margin-bottom:0">Un reste plus court que la chute mini de sa section part au déchet. Valeur automatique : la plus petite pièce de la section dans les machines.</p>
         </form>
       </section>
       <section data-at="param" hidden>
@@ -1001,7 +1010,7 @@ const Duct3D = (() => {
       if (k < bar.pieces.length - 1 || rest > 0) x += settings.kerf * S;
     });
     if (rest > 0) {
-      const keep = rest >= settings.minKeep;
+      const keep = rest >= mk(bar.profile);
       const s = segment(wMm, hMm, rest, keep ? COLORS.rest : COLORS.scrap);
       s.userData.info = { kind: keep ? 'rest' : 'scrap', len: rest };
       s.userData.base = x;
@@ -1463,6 +1472,7 @@ function renderStock() {
 }
 
 const SEUIL = 3;
+const mk = p => (settings.minKeepSec && settings.minKeepSec[p] >= 0) ? settings.minKeepSec[p] : settings.minKeep;
 const brutState = n => n <= 0 ? 'out' : n <= SEUIL ? 'low' : 'ok';
 
 function renderBruts() {
@@ -1515,14 +1525,17 @@ function renderSettings() {
   if (document.activeElement && document.activeElement.closest('#setForm')) return;
   $('setBar').value = settings.barLength;
   $('setKerf').value = settings.kerf;
-  $('setMin').value = settings.minKeep;
+  const auto = settings.minKeepAuto || {};
+  $('minKeepRows').innerHTML = PROFILES.map(p => `<div><label for="mk-${short(p)}">${ductSVG(p)}${short(p)}</label>
+    <input id="mk-${short(p)}" class="mkin" data-p="${p}" type="number" min="0" step="1" value="${mk(p)}">
+    <small>auto : ${auto[p] != null ? auto[p] + ' mm' : '—'}</small></div>`).join('');
 }
 
 function renderAll() { renderProfiles(); renderMachines(); renderStock(); renderBruts(); renderHistory(); renderSettings(); renderOrders(); }
 
-function barDiagram(pieces, total, i) {
+function barDiagram(pieces, total, i, profile) {
   const rest = remainderOf(pieces, total);
-  const kept = rest >= settings.minKeep;
+  const kept = rest >= (profile ? mk(profile) : settings.minKeep);
   const pct = v => (v / total * 100) + '%';
   let html = '';
   pieces.forEach((len, i) => {
@@ -1687,7 +1700,7 @@ function summarise(bars) {
   let kept = 0, scrap = 0;
   bars.forEach(b => {
     const r = remainderOf(b.pieces, b.length);
-    if (r > 0 && r >= settings.minKeep) kept++; else scrap += r;
+    if (r > 0 && r >= mk(b.profile)) kept++; else scrap += r;
   });
   return {
     pieces: bars.reduce((n, b) => n + b.pieces.length, 0),
@@ -1735,13 +1748,13 @@ function renderPlan() {
     html += `<div class="group"><h3>Goulotte ${short(pr)} <small>${list.length} goulotte(s) dont ${nb} neuve(s)</small></h3>`;
     list.forEach((b, i) => {
       const rest = remainderOf(b.pieces, b.length);
-      const keep = rest > 0 && rest >= settings.minKeep;
+      const keep = rest > 0 && rest >= mk(b.profile);
       html += `<div class="planbar" id="pb-${plan.bars.indexOf(b)}">
         <div class="head">
           <strong>${i + 1}. ${b.source === 'chute' ? 'Chute <span class="tag">#' + b.num + '</span> ' + b.length + ' mm' : 'Goulotte neuve ' + b.length + ' mm'}</strong>
           <span class="muted">${rest <= 0 ? 'aucun reste' : keep ? 'reste ' + rest + ' mm → stock' + (b.keptNum ? ' <span class="tag">#' + b.keptNum + '</span>' : '') : 'reste ' + rest + ' mm → déchet'}</span>
         </div>
-        ${barDiagram(b.pieces, b.length, idx++)}
+        ${barDiagram(b.pieces, b.length, idx++, b.profile)}
         <div class="muted">Coupes : ${b.pieces.map(x => x + ' mm').join(' · ')}</div>
       </div>`;
     });
@@ -2201,11 +2214,12 @@ function showAchatTab(t) {
 
 function updateMiscutRule() {
   const len = Math.round(Number($('mcLength').value));
-  const base = `Chute minimale gardée : ${settings.minKeep} mm (réglable dans Espace méthode → Paramètres).`;
+  const min = mk($('mcProfile').value);
+  const base = `Chute minimale gardée en ${short($('mcProfile').value)} : ${min} mm.`;
   if (!(len > 0)) { $('mcRule').textContent = base; return; }
-  $('mcRule').innerHTML = len < settings.minKeep
-    ? `<span class="mcpreview ko">${len} mm &lt; ${settings.minKeep} mm : la pièce part au rebut.</span>`
-    : `<span class="mcpreview ok">${len} mm ≥ ${settings.minKeep} mm : la pièce rejoint le stock de chutes avec un numéro.</span>`;
+  $('mcRule').innerHTML = len < min
+    ? `<span class="mcpreview ko">${len} mm &lt; ${min} mm : la pièce part au rebut.</span>`
+    : `<span class="mcpreview ok">${len} mm ≥ ${min} mm : la pièce rejoint le stock de chutes avec un numéro.</span>`;
 }
 
 async function saveMiscut(btn) {
@@ -2249,7 +2263,9 @@ async function removeChute(id) {
 }
 
 async function saveSettings() {
-  const s = { barLength: $('setBar').value, kerf: $('setKerf').value, minKeep: $('setMin').value };
+  const minKeepSec = {};
+  document.querySelectorAll('#minKeepRows .mkin').forEach(i => { minKeepSec[i.dataset.p] = i.value; });
+  const s = { barLength: $('setBar').value, kerf: $('setKerf').value, minKeep: settings.minKeep, minKeepSec };
   try {
     document.activeElement && document.activeElement.blur();
     await server('settings', s);
@@ -2498,7 +2514,13 @@ $('miscutToggle').addEventListener('click', () => {
   }
 });
 $('mcLength').addEventListener('input', updateMiscutRule);
+$('mcProfile').addEventListener('change', updateMiscutRule);
 $('miscutForm').addEventListener('submit', e => { e.preventDefault(); saveMiscut(e.submitter || $('miscutForm').querySelector('button')); });
+$('minAuto').addEventListener('click', () => {
+  const auto = settings.minKeepAuto || {};
+  document.querySelectorAll('#minKeepRows .mkin').forEach(i => { if (auto[i.dataset.p] != null) i.value = auto[i.dataset.p]; });
+  toast('Valeurs reprises des machines : cliquez sur « Enregistrer » pour les appliquer.');
+});
 $('addForm').addEventListener('submit', e => { e.preventDefault(); addManual(); });
 $('setForm').addEventListener('submit', e => { e.preventDefault(); saveSettings(); });
 $('loginForm').addEventListener('submit', async e => {
