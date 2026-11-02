@@ -347,6 +347,7 @@
   #brutForm { grid-template-columns: 1fr 1fr auto; }
   .brutbtns { display: flex; gap: 8px; }
   .brutmotif { grid-column: 1 / -1; }
+  .addtitle { margin: 22px 0 10px; font: 700 1.05rem var(--font-head); color: var(--ink); }
   .stockalert { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; margin-bottom: 16px;
     background: var(--ko-bg); color: var(--ko); border: 1px solid #f2c4bf; }
   .stockalert.low { background: #fff3d6; color: #8a5300; border-color: #f0d9a0; }
@@ -622,6 +623,18 @@
         <div class="sectiontitle"><h2>Chutes en stock</h2><p class="muted" id="stockTotal"></p></div>
         <div class="stats" id="tabs"></div>
         <div class="card" style="margin-top:18px;padding:0;overflow:hidden" id="stock"></div>
+        <h3 class="addtitle">Ajouter une chute</h3>
+        <form id="addForm" class="card formrow addchute">
+          <div>
+            <label for="addProfile">Section</label>
+            <select id="addProfile"></select>
+          </div>
+          <div>
+            <label for="addLength">Longueur (mm)</label>
+            <input id="addLength" type="number" inputmode="numeric" min="1" step="1">
+          </div>
+          <button class="btn" type="submit">Ajouter au stock</button>
+        </form>
       </section>
         <section data-at="stock" hidden>
         <div class="sectiontitle"><h2>Goulottes brutes</h2><p class="muted" id="brutTotal"></p></div>
@@ -644,20 +657,6 @@
             <label for="brutMotif">Motif du retrait</label>
             <select id="brutMotif"><option>Casse / défaut</option><option>Erreur de saisie</option><option>Inventaire</option><option>Autre</option></select>
           </div>
-        </form>
-      </section>
-        <section data-at="stock" hidden>
-        <div class="sectiontitle"><h2>Ajouter une chute existante</h2></div>
-        <form id="addForm" class="card formrow">
-          <div>
-            <label for="addProfile">Section</label>
-            <select id="addProfile"></select>
-          </div>
-          <div>
-            <label for="addLength">Longueur (mm)</label>
-            <input id="addLength" type="number" inputmode="numeric" min="1" step="1">
-          </div>
-          <button class="btn" type="submit">Ajouter au stock</button>
         </form>
       </section>
       <section data-at="hist" hidden>
