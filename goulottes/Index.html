@@ -1911,6 +1911,7 @@ async function achatCompute() {
       <p class="muted">Calcul : les pièces des machines sont placées d'abord dans les chutes du stock, puis dans le moins de goulottes neuves possible (même optimisation que le plan de découpe). Les quantités à acheter sont modifiables.</p>
       <div class="actions">
         <button type="button" class="btn big" id="achatValidate"${rows.length ? '' : ' disabled'}>Valider l'achat : ajouter au stock</button>
+        <button type="button" class="btn big ghost" id="achatCancel">Annuler</button>
       </div>
     </div>`;
   out.hidden = achatTab !== 'now';
@@ -2261,7 +2262,19 @@ $('planTable').addEventListener('click', async e => {
   b.disabled = true;
   try { await savePlanRows(); toast('Ligne supprimée du planning.'); } catch (err) { toast(err.message); }
 });
-$('achatOut').addEventListener('click', e => { if (e.target.id === 'achatValidate') achatValidate(e.target); });
+$('achatOut').addEventListener('click', e => {
+  if (e.target.id === 'achatValidate') achatValidate(e.target);
+  if (e.target.id === 'achatCancel') {
+    achatPlan = null;
+    $('achatOut').hidden = true;
+    $('achatOut').innerHTML = '';
+    $('achatRef').value = '';
+    Object.keys(orderCount).forEach(k => { orderCount[k] = 0; });
+    renderOrders();
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    toast('Calcul annulé : rien n\'a été ajouté au stock.');
+  }
+});
 $('achatOut').addEventListener('input', e => {
   if (!e.target.classList.contains('buy')) return;
   const t = [...document.querySelectorAll('#achatOut input.buy')].reduce((s, i) => s + Math.max(0, Math.round(Number(i.value) || 0)), 0);
