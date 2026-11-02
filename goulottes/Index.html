@@ -342,6 +342,7 @@
   .brut .count b { font: 700 2.6rem var(--font-head); color: var(--st); line-height: 1; }
   .brut .count span { font-size: .85rem; color: var(--muted); }
   .brut .chip { justify-self: start; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--st); background: var(--stbg); border-radius: 999px; padding: 3px 10px; }
+  .pile:empty { display: none; }
   .pile { display: flex; flex-direction: column-reverse; gap: 3px; min-height: 66px; justify-content: flex-start; }
   .pile i { display: block; height: 6px; border-radius: 2px; width: 100%;
     background: linear-gradient(180deg, #d4d9df 0%, #a9b0b8 55%, #8d949c 100%); box-shadow: inset 0 0 0 1px rgba(31,42,68,.12); }
@@ -1408,7 +1409,6 @@ function renderMachines() {
     const list = machines[n];
     const pieces = list.reduce((s, r) => s + r.qty, 0);
     const meters = list.reduce((s, r) => s + r.qty * r.length, 0) / 1000;
-    const secs = PROFILES.filter(p => list.some(r => r.profile === p));
     const count = machineCount[n] || 1;
     const photo = machinePhoto(n);
     return `<article class="card machine${current === n ? ' current' : ''}" style="--k:${names.indexOf(n)}">
@@ -1423,9 +1423,7 @@ function renderMachines() {
         <div class="meta">
           <div><b class="num">${pieces}</b><span>pièces</span></div>
           <div><b class="num">${meters.toFixed(1)} m</b><span>de goulotte</span></div>
-          <div><b class="num">${secs.length}</b><span>section${secs.length > 1 ? 's' : ''}</span></div>
         </div>
-        <div class="secs">${secs.map(s => `<span>${ductSVG(s)}${esc(short(s))}</span>`).join('')}</div>
         <div class="go">
           <div class="stepper" aria-label="Nombre de machines">
             <button type="button" data-step="-1" data-m="${esc(n)}" aria-label="Une machine de moins">−</button>
@@ -1444,7 +1442,7 @@ function renderStock() {
     const list = chutesOf(p);
     const m = list.reduce((s, c) => s + c.length, 0) / 1000;
     return `<button type="button" class="stat" style="--k:${PROFILES.indexOf(p)}" data-tab="${p}" aria-pressed="${p === stockTab}">
-      ${ductSVG(p, 'duct-mini')}<span>Goulotte</span><b>${short(p)}</b><span class="num">${list.length} chute${list.length > 1 ? 's' : ''} · ${m.toFixed(2)} m</span></button>`;
+      ${ductSVG(p, 'duct-mini')}<b>${short(p)}</b><span class="num">${list.length} chute${list.length > 1 ? 's' : ''} · ${m.toFixed(2)} m</span></button>`;
   }).join(''));
   $('stockTotal').textContent = `${chutes.length} chute(s) au total`;
   const list = chutesOf(stockTab);
@@ -1475,12 +1473,11 @@ function renderBruts() {
     const label = { ok: 'Disponible', low: 'Stock bas', out: 'Rupture' }[st];
     const shown = Math.min(n, 10);
     const pile = n ? Array.from({ length: shown }, () => '<i></i>').join('') + (n > shown ? `<span class="more">+ ${n - shown}</span>` : '')
-      : '<span class="none">Découpe impossible</span>';
+      : '';
     return `<div class="brut ${st}">
-      <div class="top"><div><span>Brut ${settings.barLength} mm</span><b>${short(p)}</b></div>${ductSVG(p)}</div>
+      <div class="top"><div><b>${short(p)}</b></div>${ductSVG(p)}</div>
       <div class="count"><b class="num">${n}</b><span>brut${n > 1 ? 's' : ''} disponible${n > 1 ? 's' : ''}</span></div>
       <div class="pile" aria-hidden="true">${pile}</div>
-      <div class="gauge" title="Seuil d'alerte : ${SEUIL}"><span style="width:${Math.min(100, n / max * 100)}%"></span><em style="left:${SEUIL / max * 100}%"></em></div>
       <span class="chip">${label}</span>
       ${(() => { const d = livraisons.filter(x => x.profile === p).sort((a, b) => a.week < b.week ? -1 : 1)[0]; return d ? `<span class="next">Livraison ${wLabel(d.week)} : +${d.qty}</span>` : ''; })()}
     </div>`;
@@ -1758,7 +1755,6 @@ function renderPlan() {
       <button type="button" class="btn ghost" id="cancelPlan">${plan.applied ? 'Fermer' : 'Annuler le plan'}</button>
     </div>
     <div id="pdfLink"></div>
-    <p class="muted" style="margin-bottom:0">Validez une fois les coupes faites : les chutes utilisées sortent du stock et les restes y entrent avec leur numéro (repris dans le PDF généré ensuite).</p>
     </div>`;
   out.innerHTML = html;
   out.hidden = false;
@@ -1942,7 +1938,6 @@ async function achatCompute() {
           <td class="r"><input type="number" min="0" step="1" class="buy" data-p="${r.profile}" value="${r.missing}" aria-label="Bruts ${short(r.profile)} à acheter"></td>
         </tr>`).join('')}</tbody>
       </table></div>` : '<p class="empty">Toutes les pièces tiennent dans les chutes du stock : aucun brut nécessaire.</p>'}
-      <p class="muted">Calcul : les pièces des machines sont placées d'abord dans les chutes du stock, puis dans le moins de goulottes neuves possible (même optimisation que le plan de découpe). Les quantités à acheter sont modifiables.</p>
       <div class="actions">
         <button type="button" class="btn big" id="achatValidate"${rows.length ? '' : ' disabled'}>Valider l'achat : ajouter au stock</button>
         <button type="button" class="btn big ghost" id="achatCancel">Annuler</button>
