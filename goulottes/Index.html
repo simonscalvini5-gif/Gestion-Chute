@@ -494,35 +494,17 @@
   .mcpreview { font-weight: 700; }
   .mcpreview.ko { color: var(--ko); } .mcpreview.ok { color: var(--ok); }
 
-  /* Chargement : le logo TDM se trace au néon, la barre jaune fait office de scanner */
+  /* Chargement : petit logo TDM et fine ligne de progression */
   .loader { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; pointer-events: none;
-    background: rgba(246, 248, 252, .62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); opacity: 0; transition: opacity .3s; }
+    background: rgba(255, 255, 255, .55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); opacity: 0; transition: opacity .3s; }
   .loader.on { opacity: 1; pointer-events: auto; }
-  .tdmload { position: relative; width: 140px; display: grid; justify-items: center; gap: 10px; }
-  .tdmload::before { content: ""; position: absolute; left: 50%; top: 50%; width: 190px; height: 190px; transform: translate(-50%, -50%); border-radius: 50%;
-    background: conic-gradient(from 0deg, transparent 0 70%, rgba(31,63,132,.35) 85%, rgba(242,183,5,.9) 88%, transparent 89%);
-    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
-    animation: ring 1.6s linear infinite; opacity: .9; }
-  .tdmload::after { content: ""; position: absolute; left: 50%; top: 50%; width: 170px; height: 170px; transform: translate(-50%, -50%); border-radius: 50%;
-    border: 1px dashed rgba(31,63,132,.22); animation: ringback 9s linear infinite; }
-  @keyframes ringback { to { transform: translate(-50%, -50%) rotate(-1turn); } }
-  .tdmlogo { position: relative; width: 130px; overflow: hidden; animation: tdmbreath 2.4s ease-in-out infinite; }
-  .tdmlogo img { display: block; width: 100%; height: auto; }
-  .tdmlogo::after { content: ""; position: absolute; top: -20%; bottom: -20%; width: 35%; left: -40%; transform: skewX(-20deg);
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.85), transparent); animation: tdmsweep 1.8s cubic-bezier(.6,0,.4,1) infinite; }
-  @keyframes tdmsweep { to { left: 120%; } }
-  @keyframes tdmbreath { 0%, 100% { opacity: .75; filter: drop-shadow(0 0 0 rgba(47,106,196,0)); } 50% { opacity: 1; filter: drop-shadow(0 0 10px rgba(47,106,196,.35)); } }
-  .tdmload .scan { position: relative; width: 56px; height: 6px; border-radius: 6px; background: var(--yellow); overflow: hidden;
-    box-shadow: 0 0 14px rgba(242,183,5,.7); animation: tdmbar 2.4s ease-in-out infinite; }
-  .tdmload .scan::after { content: ""; position: absolute; top: 0; bottom: 0; width: 30%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
-    animation: tdmshine 1.2s linear infinite; }
-  @keyframes tdmbar { 0%, 100% { transform: scaleX(.35); opacity: .7; } 50% { transform: scaleX(1); opacity: 1; } }
-  @keyframes tdmshine { from { left: -30%; } to { left: 100%; } }
-  .tdmload small { font: 600 .6rem var(--font); letter-spacing: .3em; color: var(--navy); opacity: .7; padding-left: .3em; white-space: nowrap; }
-  .tdmload small i { font-style: normal; animation: tdmdot 1.2s infinite; } .tdmload small i:nth-child(2) { animation-delay: .2s; } .tdmload small i:nth-child(3) { animation-delay: .4s; }
-  @keyframes tdmdot { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
-  @keyframes ring { to { transform: translate(-50%, -50%) rotate(1turn); } }
-  @media (prefers-reduced-motion: reduce) { .tdmload *, .tdmload::before, .tdmload::after { animation-duration: 4s !important; } }
+  .tdmload { display: grid; justify-items: center; gap: 10px; }
+  .tdmload img { display: block; width: 84px; height: auto; animation: tdmbreath 1.8s ease-in-out infinite; }
+  .tdmload .line { position: relative; width: 84px; height: 2px; border-radius: 2px; background: rgba(31,63,132,.12); overflow: hidden; }
+  .tdmload .line::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; border-radius: 2px; background: var(--yellow); animation: tdmline 1.1s cubic-bezier(.6,0,.4,1) infinite; }
+  @keyframes tdmline { from { left: -40%; } to { left: 100%; } }
+  @keyframes tdmbreath { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .tdmload img, .tdmload .line::after { animation-duration: 3s; } }
 
   /* Vue 3D */
   .v3d { position: relative; height: 500px; border-radius: 16px; overflow: hidden; margin: -4px 0 22px;
@@ -917,7 +899,7 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<div class="loader" id="loader" role="status" aria-live="polite" aria-hidden="true" aria-label="Chargement"><div class="tdmload"><div class="tdmlogo"><img src="https://simonscalvini5-gif.github.io/Gestion-Chute/img/logo-tdm.png" alt="TDM by Insidix"></div><div class="scan"></div><small>CHARGEMENT<i>.</i><i>.</i><i>.</i></small></div></div>
+<div class="loader" id="loader" role="status" aria-live="polite" aria-hidden="true" aria-label="Chargement"><div class="tdmload"><img src="https://simonscalvini5-gif.github.io/Gestion-Chute/img/logo-tdm.png" alt="TDM by Insidix"><div class="line"></div></div></div>
 
 <div class="login" id="login" hidden>
   <form id="loginForm">
