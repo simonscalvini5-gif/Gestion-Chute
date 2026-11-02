@@ -157,7 +157,7 @@ function mailBdc(bdc, subject, intro) {
   const html = '<div style="font-family:Arial,sans-serif;color:#1f2a44">'
     + '<p style="font-size:18px;color:#1f3f84"><b>TDM by INSIDI<span style="color:#f2b705">X</span></b></p>'
     + intro + '<p>Bon de commande <b>' + esc(bdc.num) + '</b> en pièce jointe.</p></div>';
-  MailApp.sendEmail({ to: ALERTE_EMAIL, subject: subject, htmlBody: html, body: subject, attachments: [bdc.blob] });
+  MailApp.sendEmail({ to: ALERTE_EMAIL, name: EXPEDITEUR, subject: subject, htmlBody: html, body: subject, attachments: [bdc.blob] });
 }
 
 function bdcTest(p) {

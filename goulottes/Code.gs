@@ -14,6 +14,8 @@ const ACHAT_MOT_DE_PASSE = prop('ACHAT_MOT_DE_PASSE');
 
 // Alerte e-mail quand il ne reste plus que SEUIL_ALERTE bruts (ou moins) d'une section.
 const ALERTE_EMAIL = 'simon.scalvini@insidix.com';
+// Nom d'expéditeur affiché dans les e-mails (l'adresse reste celle du compte Google propriétaire du script).
+const EXPEDITEUR = 'Goulottes by TDM';
 const SEUIL_ALERTE = 3;
 // Rappel de commande : e-mail envoyé ce nombre de semaines avant la semaine de fabrication.
 const RAPPEL_SEMAINES = 2;
@@ -219,7 +221,7 @@ function sendAlert(alerts, motif) {
     + '<ul>' + lines.map(l => '<li>' + esc(l) + '</li>').join('') + '</ul>'
     + '<p style="color:#7a8291">Dernier mouvement : ' + esc(motif) + '. Pensez à passer commande (Espace méthode).</p></div>';
   try {
-    MailApp.sendEmail({ to: ALERTE_EMAIL, subject: subject, body: lines.join('\n'), htmlBody: html });
+    MailApp.sendEmail({ to: ALERTE_EMAIL, name: EXPEDITEUR, subject: subject, body: lines.join('\n'), htmlBody: html });
   } catch (e) {
     mouvementsSheet().appendRow([new Date(), '', 0, 'Alerte e-mail non envoyée : ' + e.message]);
   }
@@ -766,7 +768,7 @@ function sendReminders() {
     try {
       // Bon de commande joint : arrivée prévue le lundi de la semaine précédant la fabrication.
       const bdc = makeBdc(parseBuy(f.buy), weekMonday(addWeeks(f.week, -1)), 'Planning – ' + f.qty + ' × ' + f.machine + ' ' + weekLabel(f.week), false);
-      MailApp.sendEmail({ to: ALERTE_EMAIL, subject: subject + ' – BC ' + bdc.num, body: 'À commander pour ' + f.qty + ' × ' + f.machine + ' (' + weekLabel(f.week) + ') : ' + f.buy,
+      MailApp.sendEmail({ to: ALERTE_EMAIL, name: EXPEDITEUR, subject: subject + ' – BC ' + bdc.num, body: 'À commander pour ' + f.qty + ' × ' + f.machine + ' (' + weekLabel(f.week) + ') : ' + f.buy,
         htmlBody: html + '<p style="font-family:Arial,sans-serif">Bon de commande <b>' + bdc.num + '</b> en pièce jointe.</p>', attachments: [bdc.blob] });
       sh.getRange(f.row, 5).setValue(new Date());
     } catch (e) {
