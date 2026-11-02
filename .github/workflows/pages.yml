@@ -4,7 +4,7 @@ name: Site goulottes (GitHub Pages)
 on:
   push:
     branches: [claude/quirky-wright-cswq7t]
-    paths: ['goulottes/Index.html', '.github/workflows/pages.yml']
+    paths: ['goulottes/Index.html', 'goulottes/img/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -28,6 +28,7 @@ jobs:
         run: |
           mkdir _site
           cp goulottes/Index.html _site/index.html
+          cp -r goulottes/img _site/img
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

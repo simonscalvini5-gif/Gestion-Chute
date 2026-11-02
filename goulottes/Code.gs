@@ -83,10 +83,18 @@ function api(action, payload, login) {
   if (!login || login.user !== IDENTIFIANT || login.password !== MOT_DE_PASSE) return { error: 'auth' };
 
   if (action === 'state') {
-    // Les livraisons dont la semaine est arrivée entrent automatiquement dans le stock.
-    const l = LockService.getScriptLock();
-    if (l.tryLock(5000)) { try { processDeliveries(); sendReminders(); } finally { l.releaseLock(); } }
-    return { state: readState() };
+    const props = PropertiesService.getScriptProperties();
+    // Livraisons arrivées et rappels de commande : vérifiés au plus une fois par heure (et chaque matin par le déclencheur).
+    if (Date.now() - Number(props.getProperty('lastCheck') || 0) > 3600000) {
+      const l = LockService.getScriptLock();
+      if (l.tryLock(5000)) {
+        try { props.setProperty('lastCheck', String(Date.now())); processDeliveries(); sendReminders(); archiveYears(); } finally { l.releaseLock(); }
+      }
+    }
+    // Rien n'a changé depuis le dernier appel de ce poste : on ne relit pas le tableau.
+    const v = dataVersion();
+    if (payload && payload.v && String(payload.v) === v) return { unchanged: true, v: v };
+    return { state: readState(), v: v };
   }
 
   // Une seule modification à la fois, même si plusieurs postes valident en même temps.
@@ -114,7 +122,7 @@ function api(action, payload, login) {
     else if (action === 'achatValidate') result = achatCheck(payload) || validateAchat(payload);
     else return { error: 'Action inconnue.' };
     SpreadsheetApp.flush();
-    if (!result.error) result.state = readState();
+    if (!result.error) { bumpVersion(); result.state = readState(); result.v = dataVersion(); }
     return result;
   } finally {
     lock.releaseLock();
@@ -171,7 +179,12 @@ function readBruts() {
 }
 
 // Ajoute (ou retire si négatif) des bruts ; le stock ne descend jamais sous 0.
+// Numéro de version des données : change à chaque modification, permet aux postes de ne relire que si besoin.
+function dataVersion() { return PropertiesService.getScriptProperties().getProperty('dataV') || '1'; }
+function bumpVersion() { PropertiesService.getScriptProperties().setProperty('dataV', String(Date.now())); }
+
 function changeBruts(deltas, motif) {
+  bumpVersion();
   const sh = brutsSheet();
   const now = new Date();
   const alerts = [];
@@ -766,7 +779,7 @@ function sendReminders() {
 function rappelsQuotidiens() {
   const l = LockService.getScriptLock();
   if (!l.tryLock(30000)) return;
-  try { processDeliveries(); sendReminders(); } finally { l.releaseLock(); }
+  try { processDeliveries(); sendReminders(); archiveYears(); } finally { l.releaseLock(); }
 }
 
 function installDailyTrigger() {
@@ -835,4 +848,36 @@ function undoLast(p) {
   const hs = historySheet();
   o.rows.forEach(x => hs.getRange(x.row, 11).setValue(now));
   return { undone: describeOp(o) };
+}
+
+/* ---------- Archivage annuel ---------- */
+
+// Une fois par an : les lignes des années passées de « Historique » et « Mouvements bruts »
+// sont déplacées dans des onglets « Historique AAAA » / « Mouvements bruts AAAA ».
+function archiveYears() {
+  const props = PropertiesService.getScriptProperties();
+  const year = new Date().getFullYear();
+  if (props.getProperty('archivedYear') === String(year)) return;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  [[historySheet(), SHEET_HISTORY], [mouvementsSheet(), SHEET_MOUVEMENTS]].forEach(([sh, name]) => {
+    const last = sh.getLastRow();
+    if (last < 2) return;
+    const width = sh.getLastColumn();
+    const head = sh.getRange(1, 1, 1, width).getValues()[0];
+    const rows = sh.getRange(2, 1, last - 1, width).getValues();
+    const keep = [], old = {};
+    rows.forEach(r => {
+      const y = r[0] instanceof Date ? r[0].getFullYear() : year;
+      if (y < year) (old[y] = old[y] || []).push(r); else keep.push(r);
+    });
+    if (!Object.keys(old).length) return;
+    Object.keys(old).forEach(y => {
+      const arch = ss.getSheetByName(name + ' ' + y) || ss.insertSheet(name + ' ' + y);
+      if (arch.getLastRow() === 0) arch.appendRow(head);
+      arch.getRange(arch.getLastRow() + 1, 1, old[y].length, width).setValues(old[y]);
+    });
+    sh.deleteRows(2, last - 1);
+    if (keep.length) sh.getRange(2, 1, keep.length, width).setValues(keep);
+  });
+  props.setProperty('archivedYear', String(year));
 }
