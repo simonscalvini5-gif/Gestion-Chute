@@ -549,7 +549,6 @@
     <section>
       <div class="sectiontitle">
         <h2>Découpe par machine</h2>
-        <p class="muted">Listes modifiables dans l'onglet « Machines » du tableau Google Sheets.</p>
       </div>
       <div class="machines" id="machines"></div>
     </section>
@@ -1349,7 +1348,7 @@ const machineModel = name => /XL/i.test(name) ? 'COMPACT-3 XL' : 'COMPACT-3';
 
 function renderMachines() {
   const names = Object.keys(machines);
-  if (!names.length) { setHTML($('machines'), '<div class="empty">Aucune machine : remplissez l\'onglet « Machines » du tableau.</div>'); return; }
+  if (!names.length) { setHTML($('machines'), '<div class="empty">Aucune machine disponible.</div>'); return; }
   const current = plan && plan.machine;
   setHTML($('machines'), names.map(n => {
     const list = machines[n];
@@ -1761,22 +1760,26 @@ function renderPlan() {
   if (!plan3d) $('v3dStage').innerHTML = '<div class="v3d-off">La vue 3D n\'est pas disponible sur ce poste : le plan reste détaillé ci-dessous.</div>';
 }
 
-async function computePlan(machine) {
+async function computePlan() {
   const { pieces, error } = readLines();
   if (error) { toast(error); return; }
   if (!pieces.length) { toast('Ajoutez au moins une pièce : section, longueur et quantité.'); return; }
+  await showPlan(pieces, $('planRef').value.trim(), null);
+}
+
+async function showPlan(pieces, ref, machine) {
   await refresh();
-  plan = { ref: $('planRef').value.trim(), bars: optimise(pieces), applied: false, machine: typeof machine === 'string' ? machine : null };
+  plan = { ref, bars: optimise(pieces), applied: false, machine };
   renderPlan();
   $('planOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// Plan d'une machine : calculé directement, sans remplir la découpe sur mesure.
 function prepareMachine(name) {
   const count = machineCount[name] || 1;
-  $('lines').innerHTML = '';
-  machines[name].forEach(r => addLine({ profile: r.profile, length: r.length, qty: r.qty * count }));
-  $('planRef').value = count > 1 ? `${name} × ${count}` : name;
-  computePlan(name);
+  const pieces = [];
+  machines[name].forEach(r => { for (let i = 0; i < r.qty * count; i++) pieces.push({ profile: r.profile, length: r.length }); });
+  showPlan(pieces, count > 1 ? `${name} × ${count}` : name, name);
 }
 
 function planPayload() {
@@ -1802,7 +1805,7 @@ async function makePdf(btn) {
       delete payload.image;
       r = await server('pdf', payload);
     }
-    $('pdfLink').innerHTML = `<p><a class="btn ghost" href="${esc(r.url)}" target="_blank" rel="noopener">Ouvrir le PDF</a> <span class="muted">Enregistré aussi dans Google Drive, dossier « Plans de découpe goulottes ».</span></p>`;
+    $('pdfLink').innerHTML = `<p><a class="btn ghost" href="${esc(r.url)}" target="_blank" rel="noopener">Ouvrir le PDF</a></p>`;
   } catch (e) { toast(e.message); }
   btn.disabled = false;
   btn.textContent = 'Générer le PDF';
@@ -1843,7 +1846,7 @@ function renderOrders() {
         </div>
       </div>
     </div>`;
-  }).join('') : '<div class="empty">Aucune machine : remplissez l\'onglet « Machines » du tableau.</div>');
+  }).join('') : '<div class="empty">Aucune machine disponible.</div>');
 }
 
 function showAchat() {
