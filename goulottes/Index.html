@@ -315,6 +315,8 @@
   .chips2 span { font-size: .78rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--bg-soft); border: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
   .chips2.buy span { background: #fff3d6; border-color: #f0d9a0; color: #7a4a00; }
   .chips2 .none { background: none; border: 0; color: var(--ok); padding: 2px 0; }
+  .ptable .withch { margin-top: 4px; font-size: .76rem; color: var(--ok); }
+  .ptable th small { font-weight: 500; text-transform: none; letter-spacing: 0; }
   .ptable tfoot td { background: var(--bg-soft); font-weight: 700; }
   @media (max-width: 700px) { .planadd { grid-template-columns: 1fr 1fr; } .planadd .btn { grid-column: 1 / -1; } }
   .brut .next { font-size: .78rem; color: var(--navy); background: #edf2fb; border-radius: 8px; padding: 4px 8px; justify-self: start; }
@@ -1520,7 +1522,8 @@ function optimise(pieces, useStock) {
   PROFILES.forEach(pr => {
     const list = pieces.filter(p => p.profile === pr).map(p => p.length).sort((a, b) => b - a);
     if (!list.length) return;
-    const free = useStock === false ? [] : chutesOf(pr).slice();
+    const pool = Array.isArray(useStock) ? useStock.filter(c => c.profile === pr).sort((a, b) => a.length - b.length) : useStock === false ? [] : chutesOf(pr);
+    const free = pool.slice();
     const open = [];
     list.forEach(len => {
       let best = null, bestRest = Infinity;
@@ -1551,10 +1554,70 @@ function optimise(pieces, useStock) {
       free.sort((x, y) => x.length - y.length);
       Object.assign(b, { source: 'chute', chuteId: c.id, num: c.num, length: c.length });
     });
-    open.sort((a, b) => (a.source === 'chute' ? 0 : 1) - (b.source === 'chute' ? 0 : 1) || a.length - b.length);
-    bars.push(...open);
+    const exact = exactPack(pr, list, pool, open);
+    const result = exact || open;
+    result.sort((a, b) => (a.source === 'chute' ? 0 : 1) - (b.source === 'chute' ? 0 : 1) || a.length - b.length);
+    bars.push(...result);
   });
   return bars;
+}
+
+// Recherche exacte (séparation et évaluation) du meilleur plan pour une section :
+// d'abord le moins de goulottes neuves, puis les plus petites chutes (on garde les grandes).
+// Part du plan rapide ci-dessus et ne renvoie un plan que s'il est strictement meilleur ; limitée en temps.
+function exactPack(pr, lengths, stock, greedy) {
+  const k = settings.kerf, L = settings.barLength;
+  const cost = bars => [bars.filter(b => b.source === 'barre').length, bars.filter(b => b.source === 'chute').reduce((s, b) => s + b.length, 0)];
+  let [bestNew, bestCh] = cost(greedy);
+  const items = lengths.slice().sort((a, b) => b - a);
+  const size = items.map(x => x + k);
+  const suffix = new Array(items.length + 1).fill(0);
+  for (let i = items.length - 1; i >= 0; i--) suffix[i] = suffix[i + 1] + size[i];
+  const ch = stock.slice().sort((a, b) => a.length - b.length).map(c => ({ c, rem: c.length + k, used: false, items: [] }));
+  const nb = [];
+  let newCnt = 0, chUsed = 0, best = null, nodes = 0;
+  const t0 = Date.now(), LIMIT = 400000;
+  const freeCap = () => ch.reduce((s, b) => s + b.rem, 0) + nb.reduce((s, b) => s + b.rem, 0);
+  function better(n, c) { return n < bestNew || (n === bestNew && c < bestCh); }
+  function dfs(i) {
+    if (++nodes > LIMIT || (nodes % 5000 === 0 && Date.now() - t0 > 700)) return;
+    if (i === items.length) {
+      if (better(newCnt, chUsed)) {
+        bestNew = newCnt; bestCh = chUsed;
+        best = ch.filter(b => b.used).map(b => ({ profile: pr, source: 'chute', chuteId: b.c.id, num: b.c.num, length: b.c.length, pieces: b.items.slice() }))
+          .concat(nb.map(b => ({ profile: pr, source: 'barre', length: L, pieces: b.items.slice() })));
+      }
+      return;
+    }
+    const lb = newCnt + Math.max(0, Math.ceil((suffix[i] - freeCap()) / (L + k)));
+    if (lb > bestNew || (lb === bestNew && chUsed >= bestCh)) return;
+    const s = size[i], seen = new Set();
+    // 1) goulottes déjà entamées (chutes ou neuves), la plus remplie d'abord
+    const opened = ch.filter(b => b.used).concat(nb).filter(b => b.rem >= s).sort((a, b) => a.rem - b.rem);
+    for (const b of opened) {
+      if (seen.has('o' + b.rem)) continue;
+      seen.add('o' + b.rem);
+      b.rem -= s; b.items.push(items[i]);
+      dfs(i + 1);
+      b.rem += s; b.items.pop();
+    }
+    // 2) une chute pas encore utilisée, la plus petite qui convient d'abord
+    for (const b of ch) {
+      if (b.used || b.rem < s || seen.has('c' + b.c.length)) continue;
+      seen.add('c' + b.c.length);
+      b.used = true; b.rem -= s; b.items.push(items[i]); chUsed += b.c.length;
+      dfs(i + 1);
+      b.used = false; b.rem += s; b.items.pop(); chUsed -= b.c.length;
+    }
+    // 3) une goulotte neuve
+    if (s <= L + k && newCnt + 1 <= bestNew) {
+      nb.push({ rem: L + k - s, items: [items[i]] }); newCnt++;
+      dfs(i + 1);
+      nb.pop(); newCnt--;
+    }
+  }
+  dfs(0);
+  return best;
 }
 
 // Goulottes neuves nécessaires par section, comparées aux bruts en stock.
@@ -1966,10 +2029,21 @@ function planCompute() {
   const now = thisWeek();
   const left = {};
   PROFILES.forEach(p => { left[p] = bruts[p] || 0; });
+  // Chutes actuelles réparties sur les commandes, la plus proche d'abord.
+  let pool = chutes.slice();
   return planRows.map(r => {
     const need = rowNeed(r);
     const buy = {};
     const future = r.week >= now;
+    const withChutes = {};
+    if (future) {
+      const pieces = [];
+      (machines[r.machine] || []).forEach(x => { for (let i = 0; i < x.qty * r.qty; i++) pieces.push({ profile: x.profile, length: x.length }); });
+      const bars = optimise(pieces, pool);
+      const used = new Set(bars.filter(b => b.source === 'chute').map(b => b.chuteId));
+      pool = pool.filter(c => !used.has(c.id));
+      bars.filter(b => b.source === 'barre').forEach(b => { withChutes[b.profile] = (withChutes[b.profile] || 0) + 1; });
+    }
     PROFILES.forEach(p => {
       const n = need[p] || 0;
       if (!future || !n) return;
@@ -1978,7 +2052,7 @@ function planCompute() {
       if (n - take > 0) buy[p] = n - take;
     });
     const dw = addWeeks(r.week, -1);
-    return { r, need, buy, future, delivery: dw < now ? now : dw };
+    return { r, need, withChutes, buy, future, delivery: dw < now ? now : dw };
   });
 }
 
@@ -2004,12 +2078,12 @@ function renderPlanning() {
   rows.forEach(x => PROFILES.forEach(p => { if (x.buy[p]) total[p] = (total[p] || 0) + x.buy[p]; }));
   const now = thisWeek();
   $('planTable').innerHTML = rows.length ? `<div class="tablewrap"><table class="ptable">
-    <thead><tr><th>Fabrication</th><th>Machine</th><th class="r">Qté</th><th>Bruts nécessaires</th><th>À acheter</th><th>Mail de commande</th><th>Livraison des bruts</th><th></th></tr></thead>
+    <thead><tr><th>Fabrication</th><th>Machine</th><th class="r">Qté</th><th>Bruts nécessaires<br><small>sans chutes · avec chutes actuelles</small></th><th>À acheter</th><th>Mail de commande</th><th>Livraison des bruts</th><th></th></tr></thead>
     <tbody>${rows.map((x, i) => `<tr class="${x.future ? '' : 'past'}">
       <td class="wk"><b>${wLabel(x.r.week)}</b><span>${fmtDay(weekMonday(x.r.week))}</span></td>
       <td><div class="mach"><img src="${machinePhoto(x.r.machine)}" alt="">${esc(x.r.machine)}</div></td>
       <td class="r num"><strong>${x.r.qty}</strong></td>
-      <td>${chipList(x.need)}</td>
+      <td>${chipList(x.need)}${x.future ? `<div class="withch">avec chutes : ${PROFILES.filter(p => x.withChutes[p] > 0).map(p => short(p) + ' × ' + x.withChutes[p]).join(' · ') || 'aucun brut'}</div>` : ''}</td>
       <td>${x.future ? chipList(x.buy, 'buy') : '<span class="muted">—</span>'}</td>
       <td>${mailCell(x)}</td>
       <td>${!x.future ? '<span class="muted">Fabriquée</span>' : Object.keys(x.buy).length ? (x.delivery <= now ? '<span class="pill ok">Reçue</span>' : `<b>${wLabel(x.delivery)}</b> <span class="muted">· auto</span>`) : '<span class="muted">Stock suffisant</span>'}</td>

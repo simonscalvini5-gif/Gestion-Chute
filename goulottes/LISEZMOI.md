@@ -53,6 +53,17 @@ Le menu principal ne contient que **Recherche**, **Découpe** et **Espace métho
 L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) regroupe :
 **Commande immédiate**, **Planning**, **Stock** (chutes et bruts), **Historique** et **Paramètres**.
 
+## Annulation, performances, calculs
+- **Annuler la dernière découpe** : Espace méthode → Historique. Remet la chute utilisée ou le brut en stock et retire le reste créé
+  (refusé si ce reste a déjà été utilisé). Les lignes annulées restent visibles, barrées.
+- **Images** dans `goulottes/img/` (servies par GitHub Pages) ; la bibliothèque 3D n'est chargée qu'à l'ouverture d'un plan.
+- **Rafraîchissement** toutes les 2 minutes ; le tableau n'est relu que si une donnée a changé (relecture complète toutes les 10 min,
+  pour prendre en compte une modification faite à la main dans le tableau).
+- **Archivage annuel** : au premier passage de l'année, les lignes des années passées de « Historique » et « Mouvements bruts »
+  sont déplacées dans « Historique AAAA » / « Mouvements bruts AAAA ».
+- **Plan exact** : après le calcul rapide, une recherche exacte (limitée à 0,7 s par section) cherche un plan avec moins de goulottes neuves.
+- **Planning** : bruts nécessaires « sans chutes » (base des achats, prudente) et « avec chutes actuelles » (chutes réparties sur les commandes les plus proches).
+
 ## Bons de commande
 Modèle INSIDIX (bandeau, fournisseur, adresses, tableau, totaux HT/TVA/TTC, conditions, pied de page légal) — voir
 `exemple-bon-de-commande.pdf`. Numérotation automatique G00001, G00002…
