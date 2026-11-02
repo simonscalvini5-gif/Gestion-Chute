@@ -500,6 +500,53 @@
   .machine .duct svg { height: 100%; width: auto; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
   button.stat .duct-mini { float: right; width: 64px; height: auto; margin: -4px -6px 0 0; }
   @media (max-width: 600px) { .result { grid-template-columns: 1fr; } .result .duct-big { max-width: 160px; } }
+
+  /* ---------- Finition visuelle : boutons et visuels agrandis ---------- */
+  .btn { border-radius: 12px; font-weight: 600; letter-spacing: .01em; padding: 13px 24px;
+    background: linear-gradient(180deg, #2b519f 0%, #1f3f84 100%);
+    box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 6px 16px rgba(31, 63, 132, .22);
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease, color .18s ease; }
+  .btn:hover { background: linear-gradient(180deg, #24478f 0%, #172f66 100%); transform: translateY(-1px);
+    box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 10px 22px rgba(31, 63, 132, .3); }
+  .btn:active { transform: translateY(0); box-shadow: 0 2px 6px rgba(31, 63, 132, .25); }
+  .btn.big { padding: 15px 32px; font-size: 1.08rem; }
+  .btn.ghost { background: #ffffff; color: var(--ink); border: 1.5px solid #d3dbe8; box-shadow: 0 1px 2px rgba(21, 43, 92, .06); }
+  .btn.ghost:hover { background: #f4f7fc; border-color: var(--navy); color: var(--navy); box-shadow: 0 4px 12px rgba(21, 43, 92, .08); }
+  .btn.small { padding: 7px 14px; border-radius: 9px; font-weight: 600; }
+  .btn.danger, .btn.ghost.danger, .btn.ghost.danger:hover { background: linear-gradient(180deg, #c8352a 0%, #a8231a 100%); color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(180, 35, 24, .25); }
+  [data-go]::after, #computePlan::after, #achatCompute::after { content: "→"; display: inline-block; margin-left: 10px; transition: transform .2s ease; }
+  [data-go]:hover::after, #computePlan:hover::after, #achatCompute:hover::after { transform: translateX(4px); }
+  input, select, textarea { min-height: 48px; border-radius: 12px; transition: border-color .15s, box-shadow .15s; }
+  input:hover, select:hover { border-color: #b8c4d8; }
+  .stepper { border-radius: 12px; border-width: 1.5px; background: #fff; }
+  .stepper button { width: 44px; height: 46px; font-size: 1.2rem; transition: background .15s, color .15s; }
+  .stepper button:hover { background: var(--navy); color: #fff; }
+  .stepper output { min-width: 40px; font-size: 1.1rem; }
+
+  /* Machines : cartes sur toute la largeur, photos plus grandes */
+  .machines { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+  .mstage { height: 300px; }
+  .mstage .mach, .mstage .mirror { height: 68%; max-width: 84%; }
+  .machine h3 { font-size: 1.9rem; }
+  .machine .meta { gap: 26px; }
+  .machine .meta b { font-size: 1.5rem; }
+  .machine .secs span { font-size: .85rem; padding: 4px 12px 4px 6px; gap: 6px; background: #fff; }
+  .machine .secs img { width: 44px; height: 28px; }
+  .machine .go { display: grid; grid-template-columns: auto 1fr; gap: 12px; }
+  .machine .go .btn { padding: 13px 18px; white-space: nowrap; }
+
+  /* Stock : photos de section plus grandes */
+  button.stat { padding: 16px 18px 14px; }
+  button.stat .duct-photo.duct-mini { float: none; display: block; width: 100%; height: 96px; margin: 0 0 8px; object-fit: contain; }
+  .brut .top { flex-direction: column-reverse; align-items: stretch; }
+  .brut .top .duct-photo { width: 100%; height: 92px; margin: 0 0 4px; object-fit: contain; }
+  .stat b { font-size: 2rem; }
+
+  /* Bandeau : photo plus présente */
+  .hero.compact .hero-photo { width: min(48vw, 640px); right: -90px; opacity: 1; }
+  .sectiontitle h2 { font-size: 1.75rem; }
+  .card { border-radius: 18px; }
+  @media (max-width: 600px) { .mstage { height: 240px; } .machine h3 { font-size: 1.6rem; } }
 </style>
 </head>
 <body class="intro">
