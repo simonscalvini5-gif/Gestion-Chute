@@ -68,6 +68,8 @@ L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) reg
 Les bruts commandés n'entrent **plus automatiquement** en stock : Morgan valide la réception.
 - Commande immédiate : Espace méthode → Commande immédiate → « Derniers achats » → **Réception reçue** (par ligne).
 - Commande planifiée : Espace méthode → Planning → colonne « Réception » → **Réception reçue** (tout le bon de commande).
+**Relance** : si la réception n'est pas validée 7 jours après la commande, un e-mail d'alerte part à `ALERTE_EMAIL`
+(un seul e-mail regroupant les bons concernés), renouvelé tous les 7 jours jusqu'à la validation.
 Les bruts commandés et pas encore reçus sont comptés comme « à venir » dans les estimations du planning.
 
 ## Bons de commande

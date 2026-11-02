@@ -91,7 +91,7 @@ function api(action, payload, login) {
     if (Date.now() - Number(props.getProperty('lastCheck') || 0) > 3600000) {
       const l = LockService.getScriptLock();
       if (l.tryLock(5000)) {
-        try { props.setProperty('lastCheck', String(Date.now())); processDeliveries(); sendReminders(); archiveYears(); } finally { l.releaseLock(); }
+        try { props.setProperty('lastCheck', String(Date.now())); processDeliveries(); sendReminders(); sendReceptionAlerts(); archiveYears(); } finally { l.releaseLock(); }
       }
     }
     // Rien n'a changé depuis le dernier appel de ce poste : on ne relit pas le tableau.
@@ -156,10 +156,10 @@ function historySheet() {
 }
 const settingsSheet = () => sheet(SHEET_SETTINGS, ['Paramètre', 'Valeur']);
 const mouvementsSheet = () => sheet(SHEET_MOUVEMENTS, ['Date', 'Section', 'Quantité', 'Motif']);
-const ACHATS_HEAD = ['Date', 'Acheteur', 'Référence', 'Section', 'Quantité', 'Statut', 'Reçu le', 'ID', 'BC'];
+const ACHATS_HEAD = ['Date', 'Acheteur', 'Référence', 'Section', 'Quantité', 'Statut', 'Reçu le', 'ID', 'BC', 'Relancé le'];
 function achatsSheet() {
   const sh = sheet(SHEET_ACHATS, ACHATS_HEAD);
-  if (sh.getRange(1, 6).getValue() !== 'Statut') sh.getRange(1, 1, 1, ACHATS_HEAD.length).setValues([ACHATS_HEAD]);
+  if (sh.getRange(1, 10).getValue() !== 'Relancé le') sh.getRange(1, 1, 1, ACHATS_HEAD.length).setValues([ACHATS_HEAD]);
   return sh;
 }
 
@@ -646,10 +646,10 @@ function previsionsSheet() {
   if (sh.getRange(1, 4).getValue() !== 'Bruts à acheter') sh.getRange(1, 1, 1, 5).setValues([['Semaine', 'Machine', 'Quantité', 'Bruts à acheter', 'Rappel envoyé le']]);
   return sh;
 }
-const LIV_HEAD = ['ID', 'Semaine', 'Section', 'Quantité', 'Statut', 'Reçue le', 'BC'];
+const LIV_HEAD = ['ID', 'Semaine', 'Section', 'Quantité', 'Statut', 'Reçue le', 'BC', 'Commandé le', 'Relancé le'];
 function livraisonsSheet() {
   const sh = sheet(SHEET_LIVRAISONS, LIV_HEAD);
-  if (sh.getRange(1, 7).getValue() !== 'BC') sh.getRange(1, 1, 1, LIV_HEAD.length).setValues([LIV_HEAD]);
+  if (sh.getRange(1, 9).getValue() !== 'Relancé le') sh.getRange(1, 1, 1, LIV_HEAD.length).setValues([LIV_HEAD]);
   return sh;
 }
 
@@ -793,7 +793,7 @@ function sendReminders() {
       MailApp.sendEmail({ to: ALERTE_EMAIL, name: EXPEDITEUR, subject: subject + ' – BC ' + bdc.num, body: 'À commander pour ' + f.qty + ' × ' + f.machine + ' (' + weekLabel(f.week) + ') : ' + text,
         htmlBody: html + '<p style="font-family:Arial,sans-serif">Bon de commande <b>' + bdc.num + '</b> en pièce jointe.</p>', attachments: [bdc.blob] });
       // Livraison attendue la semaine de fabrication ; entrée en stock quand Morgan valide la réception.
-      lines.forEach(l => livraisonsSheet().appendRow([Utilities.getUuid(), f.week, l.profile, l.qty, 'Prévu', '', bdc.num]));
+      lines.forEach(l => livraisonsSheet().appendRow([Utilities.getUuid(), f.week, l.profile, l.qty, 'Prévu', '', bdc.num, new Date(), '']));
       sh.getRange(f.row, 4, 1, 2).setValues([[text + ' – BC ' + bdc.num, new Date()]]);
       bumpVersion();
     } catch (e) {
@@ -806,7 +806,7 @@ function sendReminders() {
 function rappelsQuotidiens() {
   const l = LockService.getScriptLock();
   if (!l.tryLock(30000)) return;
-  try { processDeliveries(); sendReminders(); archiveYears(); } finally { l.releaseLock(); }
+  try { processDeliveries(); sendReminders(); sendReceptionAlerts(); archiveYears(); } finally { l.releaseLock(); }
 }
 
 function installDailyTrigger() {
@@ -907,4 +907,51 @@ function archiveYears() {
     if (keep.length) sh.getRange(2, 1, keep.length, width).setValues(keep);
   });
   props.setProperty('archivedYear', String(year));
+}
+
+/* ---------- Relance des réceptions non validées ---------- */
+
+const RELANCE_JOURS = 7;
+
+// Commandes (immédiates ou planifiées) dont la réception n'est pas validée 7 jours après la commande :
+// un e-mail d'alerte, renouvelé tous les 7 jours tant que « Réception reçue » n'est pas cliqué.
+function sendReceptionAlerts() {
+  if (!ALERTE_EMAIL) return;
+  const now = new Date(), limit = RELANCE_JOURS * 86400000;
+  const late = (orderedAt, remindedAt) => orderedAt instanceof Date && now - orderedAt >= limit
+    && !(remindedAt instanceof Date && now - remindedAt < limit);
+  const items = [];   // { bc, ref, profile, qty, date, mark }
+  const as = achatsSheet();
+  if (as.getLastRow() > 1) {
+    as.getRange(2, 1, as.getLastRow() - 1, 10).getValues().forEach((r, i) => {
+      if (String(r[5]) === 'Commandé' && late(r[0], r[9])) items.push({ bc: String(r[8] || '—'), ref: String(r[2] || 'Commande immédiate'), profile: String(r[3]), qty: Number(r[4]), date: r[0], mark: () => as.getRange(i + 2, 10).setValue(now) });
+    });
+  }
+  const ls = livraisonsSheet();
+  if (ls.getLastRow() > 1) {
+    ls.getRange(2, 1, ls.getLastRow() - 1, 9).getValues().forEach((r, i) => {
+      if (String(r[4]) === 'Prévu' && late(r[7], r[8])) items.push({ bc: String(r[6] || '—'), ref: 'Planning ' + weekLabel(String(r[1])), profile: String(r[2]), qty: Number(r[3]), date: r[7], mark: () => ls.getRange(i + 2, 9).setValue(now) });
+    });
+  }
+  if (!items.length) return;
+  const byBc = {};
+  items.forEach(it => { (byBc[it.bc] = byBc[it.bc] || []).push(it); });
+  const days = d => Math.floor((now - d) / 86400000);
+  const html = '<div style="font-family:Arial,sans-serif;color:#1f2a44">'
+    + '<p style="font-size:18px;color:#1f3f84"><b>TDM by INSIDI<span style="color:#f2b705">X</span></b> – réception non validée</p>'
+    + '<p>Ces commandes de goulottes brutes ne sont pas marquées comme reçues depuis plus de ' + RELANCE_JOURS + ' jours :</p>'
+    + Object.keys(byBc).map(bc => {
+      const l = byBc[bc];
+      return '<p style="margin:12px 0 4px"><b>Bon de commande ' + esc(bc) + '</b> – ' + esc(l[0].ref) + ' – commandé il y a ' + days(l[0].date) + ' jours</p><ul style="margin:0">'
+        + l.map(it => '<li>' + esc(it.profile.replace('Goulotte ', '')) + ' × ' + it.qty + '</li>').join('') + '</ul>';
+    }).join('')
+    + '<p style="color:#7a8291">Si la livraison est arrivée, validez-la dans Espace méthode (bouton « Réception reçue »). Sinon, relancez le fournisseur.</p></div>';
+  const subject = '[Relance] Réception non validée – BC ' + Object.keys(byBc).join(', ');
+  try {
+    MailApp.sendEmail({ to: ALERTE_EMAIL, name: EXPEDITEUR, subject: subject, htmlBody: html,
+      body: Object.keys(byBc).map(bc => 'BC ' + bc + ' : ' + byBc[bc].map(it => it.profile.replace('Goulotte ', '') + ' × ' + it.qty).join(', ')).join('\n') });
+    items.forEach(it => it.mark());
+  } catch (e) {
+    mouvementsSheet().appendRow([new Date(), '', 0, 'Relance de réception non envoyée : ' + e.message]);
+  }
 }
