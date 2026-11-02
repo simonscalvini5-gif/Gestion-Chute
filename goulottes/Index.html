@@ -185,37 +185,144 @@
   .barwrap { position: relative; }
   .saw { position: absolute; top: 4px; bottom: 0; width: 3px; left: 0; background: var(--yellow); border-radius: 2px; opacity: 0;
     box-shadow: 0 0 12px 3px rgba(242,183,5,.75); pointer-events: none; }
-  /* ---------- Découpe pas à pas ---------- */
-  .guide { position: fixed; inset: 0; z-index: 45; background: var(--bg); display: flex; flex-direction: column; overflow-y: auto; }
+  /* ---------- Découpe guidée (fenêtre) ---------- */
+  .gmodal { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; padding: 24px;
+    background: rgba(12, 24, 52, .4); backdrop-filter: blur(12px) saturate(1.1); -webkit-backdrop-filter: blur(12px) saturate(1.1); animation: gfade .25s ease; }
   body.guiding { overflow: hidden; }
-  .gtop { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 16px; padding-bottom: 12px; color: var(--ink); width: 100%; }
-  .gprog { height: 6px; background: var(--bg-soft); flex: none; }
-  .gprog i { display: block; height: 100%; background: var(--yellow); transition: width .3s; }
-  .gbody { flex: 1; width: 100%; padding-top: 28px; padding-bottom: 20px; outline: none; }
-  .gk { font: 700 .82rem var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--sky); }
-  .gk.ok, .gbody[data-type="done"] .gk { color: var(--ok); } .gk.ko { color: var(--ko); }
-  .gsub { color: var(--muted); margin-top: 2px; }
-  .gbig { font-size: clamp(2rem, 7vw, 4rem); line-height: 1.05; margin: 14px 0 12px; }
-  .gbig small { font-size: .45em; color: var(--muted); }
-  .gbig.ok { color: var(--ok); } .gbig.ko { color: var(--ko); }
-  .gtxt { font-size: 1.15rem; color: var(--ink); max-width: 46em; margin: 8px 0; }
-  .gtxt.muted { color: var(--muted); font-size: 1rem; }
-  .gbar { height: 64px; margin: 26px 0 8px; animation: none !important; }
-  .gbar div { font-size: .9rem; }
-  .gbar .done { opacity: .28; }
-  .gbar .cur { box-shadow: inset 0 0 0 4px var(--yellow); filter: brightness(1.1); }
-  .gsplit { display: grid; grid-template-columns: 160px 1fr; gap: 24px; align-items: center; }
-  .gphoto { width: 56px; height: 56px; object-fit: contain; flex: none; }
-  .gphoto.big { width: 160px; height: 160px; }
-  .glist, .gmark { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
-  .glist li { display: flex; gap: 16px; align-items: center; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); }
-  .gmark li { display: flex; gap: 16px; align-items: center; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); font-size: 1.15rem; }
-  .gmark li .num { margin-left: auto; }
-  .tag.big { font-size: 1.15rem; padding: 4px 12px; }
-  .gfoot { display: flex; justify-content: space-between; gap: 12px; padding-top: 14px; padding-bottom: 22px; border-top: 1px solid var(--line); width: 100%; position: sticky; bottom: 0; background: var(--bg); }
-  .gfoot .btn { padding: 16px 26px; font-size: 1.05rem; }
-  .gfoot .gnext { flex: 1; max-width: 420px; }
-  @media (max-width: 600px) { .gsplit { grid-template-columns: 1fr; } .gphoto.big { width: 110px; height: 110px; } .gfoot .btn { padding: 14px 16px; } }
+  @keyframes gfade { from { opacity: 0; } }
+  @keyframes gpop { from { opacity: 0; transform: translateY(18px) scale(.97); } }
+  .gbox { width: min(1040px, 100%); max-height: min(760px, calc(100vh - 48px)); display: flex; flex-direction: column; background: #fff;
+    border-radius: 24px; overflow: hidden; box-shadow: 0 40px 100px rgba(8, 20, 48, .45); animation: gpop .35s cubic-bezier(.2,.8,.2,1); }
+  .gbox:focus { outline: none; }
+  .ghead { display: flex; align-items: center; gap: 14px; padding: 14px 18px 12px 22px; }
+  .gmach img { height: 40px; width: auto; display: block; filter: drop-shadow(0 4px 6px rgba(21,43,92,.2)); }
+  .gtt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+  .gtt b { font: 700 1.15rem var(--font-head); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gtt span { font-size: .82rem; color: var(--muted); }
+  .gx { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--ink); font-size: 1rem; cursor: pointer; flex: none; }
+  .gx:hover { background: var(--bg-soft); }
+  .gprog { height: 4px; background: var(--bg-soft); flex: none; }
+  .gprog i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--yellow), #ffd34d); transition: width .4s cubic-bezier(.2,.8,.2,1); }
+  .gmain { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.25fr 1fr; }
+  .gstage { position: relative; background: radial-gradient(120% 90% at 30% 20%, #2c5296 0%, #17305f 55%, #0d1d3e 100%); min-height: 380px; display: none; }
+  .gmodal.has3d .gstage { display: block; }
+  .gmodal:not(.has3d) .gmain, .gmodal.flat .gmain { grid-template-columns: 1fr; }
+  .gmodal.flat .gstage { display: none; }
+  #g3d { position: absolute; inset: 0; }
+  #g3d canvas { display: block; width: 100%; height: 100%; }
+  .gside { padding: 26px 28px 18px; overflow-y: auto; display: flex; flex-direction: column; }
+  .gmodal.flat .gside { padding: 30px 36px 20px; }
+  .gpanel.in > * { animation: gin .4s cubic-bezier(.2,.8,.2,1) both; }
+  .gpanel.in > :nth-child(2) { animation-delay: .04s; } .gpanel.in > :nth-child(3) { animation-delay: .08s; } .gpanel.in > :nth-child(n+4) { animation-delay: .12s; }
+  @keyframes gin { from { opacity: 0; transform: translateY(10px); } }
+  .gwhere { display: flex; align-items: center; gap: 10px; font-size: .85rem; color: var(--muted); margin-bottom: 14px; }
+  .gsec { font: 700 .8rem var(--font); color: var(--navy); background: #edf2fb; padding: 3px 10px; border-radius: 999px; }
+  .gk { display: inline-flex; align-items: center; gap: 8px; font: 700 .78rem var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--k, var(--sky)); }
+  .gk svg { width: 20px; height: 20px; }
+  .gmodal[data-kind="keep"], .gmodal[data-kind="done"] { --k: var(--ok); }
+  .gmodal[data-kind="scrap"] { --k: var(--ko); }
+  .gmodal[data-kind="cut"] { --k: #c48a00; }
+  .gtitle { font-size: clamp(1.7rem, 3.4vw, 2.4rem); line-height: 1.1; margin: 10px 0 10px; }
+  .gnum { font-size: clamp(3rem, 7vw, 4.6rem); color: var(--k, var(--ink)); letter-spacing: -.01em; }
+  .gnum small { font-size: .38em; color: var(--muted); font-weight: 600; }
+  .gtxt { font-size: 1.08rem; color: var(--ink); margin: 6px 0; }
+  .gsmall { font-size: .9rem; color: var(--muted); margin: 10px 0 6px; }
+  .gtrack { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .gtrack li { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border-radius: 999px; background: var(--bg-soft); color: var(--ink); font-weight: 600; font-size: .9rem; border: 1px solid var(--line); transition: all .25s; }
+  .gtrack li span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #fff; font-size: .74rem; color: var(--muted); }
+  .gtrack li.done { opacity: .5; text-decoration: line-through; }
+  .gtrack li.done span { background: var(--ok); color: #fff; }
+  .gtrack li.cur { background: #fff6d6; border-color: var(--yellow); box-shadow: 0 0 0 3px rgba(242,183,5,.25); }
+  .gtrack li.cur span { background: var(--yellow); color: var(--ink); }
+  .gtrack li.r.keep span { background: var(--ok-bg); color: var(--ok); } .gtrack li.r.scrap span { background: var(--ko-bg); color: var(--ko); }
+  .gtrack li.r.keep.cur { background: var(--ok-bg); border-color: var(--ok); box-shadow: 0 0 0 3px rgba(30,123,58,.18); }
+  .gtrack li.r.scrap.cur { background: var(--ko-bg); border-color: var(--ko); box-shadow: 0 0 0 3px rgba(180,35,24,.15); }
+  #g2d { margin-top: auto; padding-top: 18px; }
+  .gbar { height: 34px; margin: 0; animation: none !important; }
+  .gbar div { font-size: .74rem; transition: opacity .3s; }
+  .gbar .done { opacity: .25; }
+  .gbar .cur { box-shadow: inset 0 0 0 3px var(--yellow); }
+  .gstats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+  .gstats div { background: var(--bg-soft); border-radius: 14px; padding: 12px 14px; color: var(--muted); font-size: .85rem; }
+  .gstats b { display: block; font: 700 1.9rem var(--font-head); color: var(--ink); line-height: 1.1; }
+  .gprep, .gmark { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .gprep { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .gprep li, .gmark li { display: flex; gap: 14px; align-items: center; padding: 12px 16px; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: #fff; }
+  .gprep li div { display: flex; flex-direction: column; gap: 2px; font-size: .9rem; }
+  .gprep li b { font: 700 1.1rem var(--font-head); }
+  .gprep li em { font-style: normal; color: var(--ko); font-weight: 600; }
+  .gprep li.miss { border-color: #f2c4bf; background: var(--ko-bg); }
+  .gmark li { font-size: 1.05rem; }
+  .gmark li .num { margin-left: auto; font-weight: 600; }
+  .gphoto { width: 52px; height: 52px; object-fit: contain; flex: none; }
+  .tag.big { font-size: 1.05rem; padding: 3px 12px; }
+  .gbadge { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: #edf2fb; color: var(--navy); margin-bottom: 14px; }
+  .gbadge svg { width: 34px; height: 34px; }
+  .gbadge.ok { background: var(--ok-bg); color: var(--ok); animation: gcheck .6s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes gcheck { from { transform: scale(.3); opacity: 0; } }
+  .gfoot { display: flex; justify-content: space-between; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--line); background: #fff; flex: none; }
+  .gfoot .btn { padding: 14px 22px; font-size: 1rem; }
+  .gfoot .gnext { flex: 1; max-width: 380px; font-weight: 700; }
+  .gmodal[data-kind="keep"] .gnext, .gmodal[data-kind="done"] .gnext { background: var(--ok); }
+  .gmodal[data-kind="scrap"] .gnext { background: var(--ko); }
+  .gmodal[data-kind="cut"] .gnext { background: var(--yellow); color: var(--ink); }
+  /* Finitions de la fenêtre */
+  .gbox { border: 1px solid rgba(255,255,255,.6); }
+  .ghead { background: linear-gradient(120deg, #0d1d3e 0%, #17305f 55%, #1f3f84 100%); padding: 16px 18px 14px 22px; position: relative; }
+  .ghead::after { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 140% at 85% 0%, rgba(242,183,5,.18), transparent 60%); pointer-events: none; }
+  .gmach img { filter: drop-shadow(0 6px 10px rgba(0,0,0,.35)); }
+  .gtt b { color: #fff; font: 700 1.3rem var(--font-head); letter-spacing: .01em; }
+  .gtt span { color: rgba(255,255,255,.62); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+  .gx { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #fff; transition: background .2s, transform .2s; position: relative; z-index: 1; }
+  .gx:hover { background: rgba(255,255,255,.18); transform: rotate(90deg); }
+  .gprog { background: #0d1d3e; height: 5px; }
+  .gprog i { box-shadow: 0 0 14px 2px rgba(242,183,5,.75); border-radius: 0 4px 4px 0; }
+  .gstage::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(90% 80% at 50% 45%, transparent 55%, rgba(5,12,30,.55) 100%), linear-gradient(180deg, rgba(255,255,255,.06), transparent 30%); }
+  .gstage #g3d canvas { cursor: default; }
+  .gchip { position: absolute; top: 16px; left: 16px; z-index: 1; font: 700 .74rem var(--font); letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink); background: var(--chip, #fff); padding: 6px 12px; border-radius: 999px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+  .gchip:empty { display: none; }
+  .gmodal[data-kind="cut"] { --chip: var(--yellow); }
+  .gmodal[data-kind="keep"] .gchip { background: #3ddc84; } .gmodal[data-kind="scrap"] .gchip { background: #ff6b5e; color: #fff; }
+  .gside { background: linear-gradient(180deg, #ffffff 0%, #f7f9fd 100%); }
+  .gk { padding: 5px 12px 5px 8px; border-radius: 999px; background: var(--kbg, #e9f0fa); }
+  .gmodal[data-kind="cut"] { --kbg: #fff3cc; } .gmodal[data-kind="keep"], .gmodal[data-kind="done"] { --kbg: var(--ok-bg); } .gmodal[data-kind="scrap"] { --kbg: var(--ko-bg); }
+  .gtitle { font-family: var(--font-head); font-weight: 700; letter-spacing: -.005em; }
+  .gnum { font-weight: 800; line-height: .95; margin: 14px 0 12px; text-shadow: 0 10px 30px color-mix(in srgb, var(--k, #1f3f84) 25%, transparent); }
+  .gnum small { margin-left: 4px; }
+  .gtxt b { color: var(--k, var(--ink)); }
+  .gmodal[data-kind="cut"] .gtxt b { color: #8a6100; }
+  .gtrack li { font-family: var(--font-head); font-size: 1rem; }
+  .gstats div { background: linear-gradient(160deg, #f5f8fd, #eaf0fa); border: 1px solid #e3eaf6; }
+  .gstats b { font-size: 2.2rem; color: var(--navy); }
+  .gprep li, .gmark li { transition: transform .2s, box-shadow .2s; }
+  .gprep li:hover, .gmark li:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+  .gfoot { background: #fbfcfe; }
+  .gfoot .gnext { position: relative; overflow: hidden; letter-spacing: .01em; font-family: var(--font-head); font-size: 1.12rem;
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--k, #1f3f84) 35%, transparent); transition: transform .15s, box-shadow .2s, background .2s; }
+  .gfoot .gnext:not(:disabled):hover { transform: translateY(-1px); }
+  .gfoot .gnext:not(:disabled)::before { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,.45), transparent); transform: skewX(-20deg); animation: gshine 3.2s ease-in-out infinite 1s; }
+  @keyframes gshine { 0% { left: -60%; } 30%, 100% { left: 130%; } }
+  .gmodal[data-kind="cut"] .gnext:hover { background: #ffc61a; }
+  @media (prefers-reduced-motion: reduce) { .gfoot .gnext::before, .gpanel.in > * { animation: none !important; } }
+  .resume { display: flex; align-items: center; gap: 20px; border-left: 4px solid var(--yellow); margin-bottom: 26px; }
+  .resume .rimg img { height: 64px; width: auto; display: block; }
+  .resume .rtxt { flex: 1; min-width: 0; }
+  .resume h3 { margin: 2px 0 8px; }
+  .resume .rprog { height: 6px; border-radius: 6px; background: var(--bg-soft); overflow: hidden; margin-bottom: 6px; max-width: 360px; }
+  .resume .rprog i { display: block; height: 100%; background: var(--yellow); }
+  .resume .ract { display: flex; gap: 10px; flex-wrap: wrap; }
+  @media (max-width: 760px) {
+    .gmodal { padding: 10px; }
+    .gbox { max-height: calc(100vh - 20px); border-radius: 18px; }
+    .gmain { grid-template-columns: 1fr; overflow-y: auto; }
+    .gstage { min-height: 240px; }
+    .gside, .gmodal.flat .gside { padding: 18px 18px 12px; overflow: visible; }
+    .gfoot .btn { padding: 13px 14px; }
+    .resume { flex-wrap: wrap; }
+  }
   .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: .8rem; color: var(--muted); }
   .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
 
@@ -614,6 +721,7 @@
 
   <!-- DÉCOUPE -->
   <div class="view" data-view="decoupe">
+    <section id="planOut" hidden></section>
     <section class="card miscut" id="miscutCard">
       <button type="button" class="mchead" id="miscutToggle" aria-expanded="false" aria-controls="miscutForm">
         <span class="mcico" aria-hidden="true">!</span>
@@ -644,13 +752,11 @@
             <label for="planRef">Référence (chantier, commande…) – facultatif</label>
             <input id="planRef" type="text" autocomplete="off">
           </div>
-          <button type="button" class="btn big" id="computePlan">Calculer le plan</button>
+          <button type="button" class="btn big" id="computePlan">Démarrer la découpe</button>
         </div>
       </div>
     </section>
 
-    <section id="planOut" hidden></section>
-    <div id="guide" class="guide" role="dialog" aria-modal="true" aria-label="Découpe pas à pas" hidden></div>
   </div>
 
   <!-- STOCK -->
@@ -805,6 +911,22 @@
   <!-- PARAMÈTRES -->
 </main>
 
+    <div id="guide" class="gmodal" role="dialog" aria-modal="true" aria-labelledby="gRef" hidden>
+      <div class="gbox" tabindex="-1">
+        <div class="ghead">
+          <div class="gmach" id="gMach"></div>
+          <div class="gtt"><b id="gRef"></b><span id="gCount"></span></div>
+          <button type="button" class="gx" id="gClose" data-g="close" aria-label="Fermer (la découpe reste en cours)">✕</button>
+        </div>
+        <div class="gprog"><i id="gProg"></i></div>
+        <div class="gmain">
+          <div class="gstage"><div id="g3d"></div><span class="gchip" id="gChip"></span></div>
+          <div class="gside"><div class="gpanel" id="gPanel"></div><div id="g2d"></div></div>
+        </div>
+        <div class="gfoot" id="gFoot"></div>
+      </div>
+    </div>
+
 <footer>
   <div class="wrap">
     <img class="logo" alt="TDM by Insidix" src="https://simonscalvini5-gif.github.io/Gestion-Chute/img/logo-tdm-blanc.png">
@@ -861,7 +983,6 @@ let stockTab = PROFILES[0];
 let busy = false;
 let armedDelete = null;
 let plan = null;
-let plan3d = null;
 const machineCount = {};
 let login = null;
 try { login = JSON.parse(localStorage.getItem(LOGIN_KEY)); } catch (e) { login = null; }
@@ -968,12 +1089,11 @@ function usedLength(pieces, total) {
 const remainderOf = (pieces, total) => total - usedLength(pieces, total);
 const fitsIn = (pieces, len, total) => usedLength(pieces, total) + len <= total;
 
-/* ---------- Vue 3D des goulottes (Three.js) ---------- */
-// 1 mm = 0,01 unité. Chaque goulotte : fond, deux parois à fentes, couvercle ; une pièce = un tronçon.
-const Duct3D = (() => {
+/* ---------- Scène 3D de la découpe guidée (Three.js) ---------- */
+// 1 mm = 0,01 unité. Une goulotte : fond, deux parois à fentes, couvercle ; chaque pièce est un tronçon.
+const Cut3D = (() => {
   const S = 0.01, T = 0.022;
-  const COLORS = { piece: [0x1f3f84, 0x2f6db5], rest: 0x1f8a46, scrap: 0x8c96a5 };
-  const views = {};
+  const COL = { piece: 0x1c4597, alt: 0x2a5cb8, rest: 0x23a55a, scrap: 0xd0443a };
   let slotCanvas = null;
 
   function wallTexture(lenMm) {
@@ -995,9 +1115,9 @@ const Duct3D = (() => {
   function segment(wMm, hMm, lenMm, color) {
     const g = new THREE.Group();
     const w = wMm * S, h = hMm * S, l = lenMm * S;
-    const plain = new THREE.MeshStandardMaterial({ color, roughness: .5, metalness: .08 });
-    const wall = new THREE.MeshStandardMaterial({ color, roughness: .5, metalness: .08, map: wallTexture(lenMm) });
-    const lid = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).lerp(new THREE.Color(0xffffff), .12), roughness: .35, metalness: .05 });
+    const plain = new THREE.MeshStandardMaterial({ color, roughness: .45, metalness: .08, transparent: true });
+    const wall = new THREE.MeshStandardMaterial({ color, roughness: .45, metalness: .08, map: wallTexture(lenMm), transparent: true });
+    const lid = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).lerp(new THREE.Color(0xffffff), .14), roughness: .3, metalness: .05, transparent: true });
     const add = (geo, mat, x, y, z) => {
       const m = new THREE.Mesh(geo, mat);
       m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
@@ -1011,68 +1131,33 @@ const Duct3D = (() => {
     return g;
   }
 
-  function sprite(text, sub, big, left) {
+  // Étiquette toujours face à la caméra, ancrée par le bas.
+  function label() {
     const c = document.createElement('canvas');
-    c.width = 512; c.height = 128;
-    const g = c.getContext('2d');
-    g.textAlign = left ? 'left' : 'right';
-    const tx = left ? 8 : 504;
-    g.font = `700 ${big ? 64 : 52}px "Barlow Semi Condensed", Barlow, sans-serif`;
-    g.fillStyle = big ? '#f2b705' : '#ffffff';
-    g.fillText(text, tx, sub ? 60 : 82);
-    if (sub) { g.font = '500 38px Barlow, sans-serif'; g.fillStyle = 'rgba(255,255,255,.72)'; g.fillText(sub, tx, 108); }
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
-    sp.center.set(left ? 0 : 1, .5);
-    sp.scale.set(big ? 2.6 : 1.9, big ? .65 : .48, 1);
+    c.width = 640; c.height = 200;
+    const tex = new THREE.CanvasTexture(c);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
+    sp.center.set(.5, 0);
+    sp.renderOrder = 10;
+    sp.userData.set = (text, sub, color) => {
+      const g = c.getContext('2d');
+      g.clearRect(0, 0, 640, 200);
+      g.font = '700 88px "Barlow Semi Condensed", Barlow, sans-serif';
+      const tw = Math.max(g.measureText(text).width, sub ? (g.font = '600 40px Barlow, sans-serif', g.measureText(sub).width) : 0);
+      const bw = Math.min(632, tw + 64), bh = sub ? 176 : 124, bx = (640 - bw) / 2, by = 200 - bh - 8;
+      g.fillStyle = 'rgba(10, 22, 48, .82)';
+      g.beginPath(); g.moveTo(bx + 24, by); g.arcTo(bx + bw, by, bx + bw, by + bh, 24); g.arcTo(bx + bw, by + bh, bx, by + bh, 24); g.arcTo(bx, by + bh, bx, by, 24); g.arcTo(bx, by, bx + bw, by, 24); g.fill();
+      g.fillStyle = color; g.fillRect(bx + 24, by + bh - 6, bw - 48, 6);
+      g.textAlign = 'center';
+      g.font = '700 88px "Barlow Semi Condensed", Barlow, sans-serif'; g.fillStyle = color;
+      g.fillText(text, 320, by + 92);
+      if (sub) { g.font = '600 40px Barlow, sans-serif'; g.fillStyle = 'rgba(255,255,255,.8)'; g.fillText(sub, 320, by + 146); }
+      tex.needsUpdate = true;
+    };
     return sp;
   }
 
-  function buildBar(bar) {
-    const [wMm, hMm] = short(bar.profile).split('x').map(Number);
-    const grp = new THREE.Group();
-    const segs = [];
-    const rest = remainderOf(bar.pieces, bar.length);
-    let x = 0;
-    bar.pieces.forEach((len, k) => {
-      const s = segment(wMm, hMm, len, COLORS.piece[k % 2]);
-      s.userData.info = { kind: 'piece', len };
-      s.userData.base = x;
-      grp.add(s); segs.push(s);
-      x += len * S;
-      if (k < bar.pieces.length - 1 || rest > 0) x += settings.kerf * S;
-    });
-    if (rest > 0) {
-      const keep = rest >= mk(bar.profile);
-      const s = segment(wMm, hMm, rest, keep ? COLORS.rest : COLORS.scrap);
-      s.userData.info = { kind: keep ? 'rest' : 'scrap', len: rest };
-      s.userData.base = x;
-      grp.add(s); segs.push(s);
-    }
-    grp.userData = { bar, segs, w: wMm * S, h: hMm * S, len: bar.length * S };
-    return grp;
-  }
-
-  function unmount(key) {
-    const v = views[key];
-    if (!v) return;
-    v.dead = true;
-    cancelAnimationFrame(v.raf);
-    if (v.ro) v.ro.disconnect();
-    if (v.io) v.io.disconnect();
-    v.scene.traverse(o => {
-      if (o.geometry) o.geometry.dispose();
-      if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-    });
-    v.renderer.dispose();
-    if (v.renderer.forceContextLoss) v.renderer.forceContextLoss();
-    v.renderer.domElement.remove();
-    delete views[key];
-  }
-
-  // bars : [{ profile, source, num, length, pieces }] ; opts : { mini, onPick(index), tip (élément infobulle) }
-  function mount(key, stage, bars, opts) {
-    unmount(key);
-    opts = opts || {};
+  function mount(stage) {
     if (typeof THREE === 'undefined' || !stage) return null;
     let renderer;
     try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch (e) { return null; }
@@ -1081,87 +1166,171 @@ const Duct3D = (() => {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.95;
+    renderer.toneMappingExposure = .9;
     renderer.setClearColor(0x000000, 0);
     stage.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(opts.mini ? 32 : 38, 1, 0.05, 400);
-    scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x0f1f40, .6));
-    scene.add(new THREE.AmbientLight(0xffffff, .12));
-    const sun = new THREE.DirectionalLight(0xfff6e8, 1.05);
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.05, 400);
+    scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x0f1f40, .65));
+    scene.add(new THREE.AmbientLight(0xffffff, .14));
+    const sun = new THREE.DirectionalLight(0xfff6e8, 1.1);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.bias = -0.0004;
+    sun.position.set(6, 16, 9);
+    Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 0.5, far: 60 });
     scene.add(sun); scene.add(sun.target);
-    const rim = new THREE.DirectionalLight(0x9cc3ff, .35);
+    const rim = new THREE.DirectionalLight(0x9cc3ff, .45);
     rim.position.set(-10, 6, -12);
     scene.add(rim);
 
-    // Disposition : une rangée par goulotte, regroupées par section.
-    const root = new THREE.Group();
-    scene.add(root);
-    const items = [];
-    const groupsZ = {};
-    let z = 0;
-    PROFILES.forEach(pr => {
-      const list = bars.map((b, i) => [b, i]).filter(([b]) => b.profile === pr);
-      if (!list.length) return;
-      const startZ = z;
-      if (!opts.mini) {
-        const head = sprite('Goulotte ' + short(pr), null, true, true);
-        const [, hMm] = short(pr).split('x').map(Number);
-        head.position.set(0.05, hMm * S + 0.42, z + 0.2);
-        root.add(head);
-        z += 0.12;
-      }
-      list.forEach(([b, i]) => {
-        const g = buildBar(b);
-        g.userData.index = i;
-        g.position.z = z + g.userData.w / 2;
-        root.add(g);
-        items.push(g);
-        if (!opts.mini) {
-          const lab = sprite(b.source === 'chute' ? 'Chute #' + b.num : 'Neuve', b.length + ' mm');
-          lab.position.set(-0.3, g.userData.h / 2 + 0.05, g.position.z);
-          root.add(lab);
-          g.userData.label = lab;
-        }
-        z += g.userData.w + (opts.mini ? 0 : 0.42);
-      });
-      groupsZ[pr] = [startZ, z];
-      z += opts.mini ? 0 : 0.9;
-    });
-    const maxLen = Math.max(...items.map(g => g.userData.len)) + 0.6;
-    const spanZ = Math.max(z, 0.8);
-    root.position.set(-maxLen / 2 + 0.3, 0, -spanZ / 2);
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: .32 }));
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: .35 }));
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
-    const grid = new THREE.GridHelper(Math.ceil(Math.max(maxLen, spanZ) / 2) * 2 + 8, Math.ceil(Math.max(maxLen, spanZ) / 2) * 4 + 16, 0x6f97d6, 0x3a5d9c);
-    grid.material.transparent = true; grid.material.opacity = .28;
+    const grid = new THREE.GridHelper(60, 120, 0x6f97d6, 0x3a5d9c);
+    grid.material.transparent = true; grid.material.opacity = .22;
     grid.position.y = 0.001;
     scene.add(grid);
 
-    const span = Math.max(maxLen, spanZ);
-    sun.position.set(span * 0.4, span * 0.9 + 4, span * 0.5);
-    Object.assign(sun.shadow.camera, { left: -span, right: span, top: span, bottom: -span, near: 0.5, far: span * 4 + 20 });
-    sun.shadow.camera.updateProjectionMatrix();
+    // Scie circulaire : lame, dents, moyeu jaune.
+    const R = 1.25;
+    const saw = new THREE.Group(), wheel = new THREE.Group();
+    const steel = new THREE.MeshStandardMaterial({ color: 0xd9dee6, metalness: .9, roughness: .28 });
+    const blade = new THREE.Mesh(new THREE.CylinderGeometry(R, R, .02, 72), steel);
+    blade.rotation.z = Math.PI / 2;
+    wheel.add(blade);
+    for (let i = 0; i < 48; i++) {
+      const a = i / 48 * Math.PI * 2;
+      const tooth = new THREE.Mesh(new THREE.BoxGeometry(.03, .1, .07), steel);
+      tooth.position.set(0, Math.cos(a) * (R + .03), Math.sin(a) * (R + .03));
+      tooth.rotation.x = -a + .5;
+      wheel.add(tooth);
+    }
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(R * .26, R * .26, .07, 40), new THREE.MeshStandardMaterial({ color: 0xf2b705, metalness: .3, roughness: .4, emissive: 0x3a2a00 }));
+    hub.rotation.z = Math.PI / 2;
+    wheel.add(hub);
+    wheel.children.forEach(m => { m.castShadow = true; });
+    saw.add(wheel);
+    scene.add(saw);
+    // Trait de coupe lumineux.
+    const laserMat = new THREE.MeshBasicMaterial({ color: 0xf2b705, transparent: true, opacity: .7, depthWrite: false });
+    const laser = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), laserMat);
+    scene.add(laser);
+    // Cote : trait, deux butées, étiquette.
+    const dimMat = new THREE.MeshBasicMaterial({ color: 0xf2b705 });
+    const dim = new THREE.Group();
+    const dimLine = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), dimMat);
+    const tickA = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), dimMat), tickB = tickA.clone();
+    dim.add(dimLine, tickA, tickB);
+    scene.add(dim);
+    const tag = label();
+    scene.add(tag);
 
-    // Caméra en orbite autour d'une cible.
-    const home = opts.mini
-      ? { theta: -0.95, phi: 0.98, r: maxLen * 1.25 + 1.2, target: new THREE.Vector3(0, 0.15, 0) }
-      : { theta: -0.62, phi: 0.92, r: span * 1.05 + Math.max(0, spanZ - maxLen) * 0.6 + 3, target: new THREE.Vector3(0, 0.2, 0) };
-    const cam = { theta: home.theta, phi: home.phi, r: home.r * 1.35, target: home.target.clone() };
-    const goal = { theta: home.theta, phi: home.phi, r: home.r, target: home.target.clone() };
-    const state = { explode: opts.mini ? 1 : 0.12, explodeNow: 0, interacted: false, t0: performance.now(), hover: null, focus: null };
+    const st = { bar: null, grp: null, segs: [], mode: 'take', j: -1, info: {}, t0: performance.now(), w: .4, h: .4, L: 1 };
+    const TH = -0.34, PH = 1.04;
+    const cam = { theta: TH, phi: PH, r: 30, target: new THREE.Vector3() };
+    const goal = { theta: TH, phi: PH, r: 30, target: new THREE.Vector3() };
 
-    function placeCamera() {
-      const sp = Math.sin(cam.phi);
-      camera.position.set(cam.target.x + cam.r * sp * Math.sin(cam.theta), cam.target.y + cam.r * Math.cos(cam.phi), cam.target.z + cam.r * sp * Math.cos(cam.theta));
-      camera.lookAt(cam.target);
+    function dispose(o) {
+      o.traverse(x => {
+        if (x.geometry) x.geometry.dispose();
+        if (x.material) [].concat(x.material).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+      });
+    }
+
+    function setBar(bar) {
+      if (st.grp) { scene.remove(st.grp); dispose(st.grp); }
+      const [wMm, hMm] = short(bar.profile).split('x').map(Number);
+      st.w = wMm * S; st.h = hMm * S; st.L = bar.length * S;
+      const grp = new THREE.Group();
+      const rest = remainderOf(bar.pieces, bar.length);
+      const keep = rest > 0 && rest >= mk(bar.profile);
+      const segs = [];
+      let x = -st.L / 2;
+      bar.pieces.forEach((len, k) => {
+        const s = segment(wMm, hMm, len, k % 2 ? COL.alt : COL.piece);
+        s.userData.base = x; s.userData.len = len * S; s.userData.kind = 'piece'; s.userData.k = k;
+        s.position.set(x, 0, 0);
+        grp.add(s); segs.push(s);
+        x += len * S;
+        if (k < bar.pieces.length - 1 || rest > 0) x += settings.kerf * S;
+      });
+      if (rest > 0) {
+        const s = segment(wMm, hMm, rest, keep ? COL.rest : COL.scrap);
+        s.userData.base = x; s.userData.len = rest * S; s.userData.kind = keep ? 'rest' : 'scrap';
+        s.position.set(x, 0, 0);
+        grp.add(s); segs.push(s);
+      }
+      grp.position.y = reduceMotion ? 0 : 3.2;
+      scene.add(grp);
+      st.grp = grp; st.segs = segs; st.bar = bar; st.born = performance.now();
+    }
+
+    // Position visée de chaque tronçon selon l'étape.
+    function targets() {
+      const { mode, j, segs, w, L } = st;
+      const pileZ = w + 0.55;
+      let px = -L / 2;
+      segs.forEach(s => {
+        const u = s.userData;
+        const done = u.kind === 'piece' && (mode === 'rest' || (mode === 'cut' && u.k < j));
+        let x = u.base, y = 0, z = 0, o = 1, glow = 0;
+        if (done) { x = px; z = pileZ; o = .55; px += u.len + 0.14; }
+        else if (mode === 'cut' && (u.k > j || u.kind !== 'piece')) x = u.base + 0.12;
+        if (mode === 'cut' && u.k === j) glow = 1;
+        if (mode === 'rest' && u.kind !== 'piece') {
+          glow = u.kind === 'rest' ? 1 : .6;
+          if (u.kind === 'rest') y = 0.25; else { z = -(w + 0.7); o = .75; }
+        }
+        u.tgt = { x, y, z, o, glow };
+      });
+    }
+
+    function show(bar, mode, j, info) {
+      if (bar !== st.bar) setBar(bar);
+      st.mode = mode; st.j = j; st.info = info || {};
+      targets();
+      const { w, h, L, segs } = st;
+      const s = mode === 'cut' ? segs[j] : null;
+      const cutX = s ? s.userData.base + s.userData.len + settings.kerf * S / 2 + 0.06 : 0;
+      const sawOn = !!s && !st.info.exact;
+      saw.visible = laser.visible = sawOn;
+      if (sawOn) {
+        saw.position.set(cutX, 0, 0);
+        laser.scale.set(0.014, h + 0.3, w + 0.8);
+        laser.position.set(cutX, (h + 0.3) / 2 - 0.02, 0);
+      }
+      dim.visible = !!s;
+      if (s) {
+        const a = s.userData.base, b = a + s.userData.len, y = h + 0.32;
+        dimLine.scale.set(b - a, 0.03, 0.03); dimLine.position.set((a + b) / 2, y, 0);
+        tickA.scale.set(0.03, 0.26, 0.03); tickA.position.set(a, y - 0.08, 0);
+        tickB.scale.set(0.03, 0.26, 0.03); tickB.position.set(b, y - 0.08, 0);
+      }
+      const span = Math.max(L, 3.5);
+      const sc = Math.min(2.4, Math.max(.8, span / 8));
+      tag.scale.set(3.2 * sc, 1 * sc, 1);
+      tag.visible = true;
+      let focusX = 0;
+      if (mode === 'take') {
+        tag.userData.set(bar.source === 'chute' ? 'Chute #' + bar.num : 'Goulotte neuve', bar.length + ' mm · ' + short(bar.profile), '#ffffff');
+        tag.position.set(0, h + 0.5, 0);
+      } else if (s) {
+        tag.userData.set(bar.pieces[j] + ' mm', st.info.exact ? 'pas de coupe' : 'pièce ' + (j + 1) + ' / ' + bar.pieces.length, '#f2b705');
+        tag.position.set(s.userData.base + s.userData.len / 2, h + 0.45, 0);
+        focusX = cutX;
+      } else if (mode === 'rest') {
+        const r = segs[segs.length - 1], keep = r.userData.kind === 'rest';
+        const len = Math.round(r.userData.len / S);
+        tag.userData.set(keep ? (st.info.num ? '#' + st.info.num : 'À garder') : 'Déchet', len + ' mm', keep ? '#3ddc84' : '#ff6b5e');
+        tag.position.set(r.userData.base + 0.12 + r.userData.len / 2, h + 0.75, keep ? 0 : -(w + 0.7));
+        focusX = r.userData.base + r.userData.len / 2;
+      }
+      goal.target.set(focusX * 0.45, h * 0.6, 0.25);
+      st.span = span;
+      st.t0 = performance.now();
     }
 
     function resize() {
@@ -1172,153 +1341,73 @@ const Duct3D = (() => {
       camera.updateProjectionMatrix();
     }
 
-    // Contrôles : glisser = tourner, Maj/clic droit = déplacer, molette ou pincement = zoom.
-    const el = renderer.domElement;
-    const pointers = new Map();
-    let downAt = null, pinch = 0;
-    el.addEventListener('contextmenu', e => e.preventDefault());
-    el.addEventListener('pointerdown', e => {
-      el.setPointerCapture(e.pointerId);
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      downAt = { x: e.clientX, y: e.clientY, pan: e.shiftKey || e.button === 2 };
-      state.interacted = true;
-      el.classList.add('drag');
-    });
-    el.addEventListener('pointermove', e => {
-      const prev = pointers.get(e.pointerId);
-      if (prev) {
-        const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
-        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-        if (pointers.size === 2) {
-          const [a, b] = [...pointers.values()];
-          const d = Math.hypot(a.x - b.x, a.y - b.y);
-          if (pinch) goal.r = Math.min(home.r * 3, Math.max(0.8, goal.r * pinch / d));
-          pinch = d;
-        } else if (downAt && downAt.pan) {
-          const k = goal.r * 0.0016;
-          const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
-          const fwd = new THREE.Vector3(Math.sin(cam.theta), 0, Math.cos(cam.theta));
-          goal.target.addScaledVector(right, -dx * k).addScaledVector(fwd, -dy * k);
-        } else {
-          goal.theta -= dx * 0.006;
-          goal.phi = Math.min(1.45, Math.max(0.2, goal.phi - dy * 0.005));
-        }
-        hideTip();
-        return;
-      }
-      hoverAt(e);
-    });
-    const up = e => {
-      pointers.delete(e.pointerId);
-      if (pointers.size < 2) pinch = 0;
-      el.classList.remove('drag');
-      if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 5 && state.hover && opts.onPick) {
-        opts.onPick(state.hover.parent.userData.index);
-      }
-      downAt = null;
-    };
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
-    el.addEventListener('pointerleave', () => { setHover(null); hideTip(); });
-    el.addEventListener('wheel', e => {
-      e.preventDefault();
-      state.interacted = true;
-      goal.r = Math.min(home.r * 3, Math.max(0.8, goal.r * (1 + e.deltaY * 0.0012)));
-    }, { passive: false });
-
-    // Survol : surbrillance du tronçon et infobulle.
-    const ray = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-    function setHover(seg) {
-      if (state.hover === seg) return;
-      if (state.hover) state.hover.userData.mats.forEach(m => m.emissive.setHex(0x000000));
-      state.hover = seg;
-      if (seg) seg.userData.mats.forEach(m => m.emissive.setHex(0x333a22));
-      el.style.cursor = seg && opts.onPick ? 'pointer' : '';
-    }
-    function hideTip() { if (opts.tip) opts.tip.hidden = true; }
-    function hoverAt(e) {
-      const r = el.getBoundingClientRect();
-      mouse.set((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-      ray.setFromCamera(mouse, camera);
-      const hit = ray.intersectObjects(items, true)[0];
-      let seg = hit ? hit.object : null;
-      while (seg && !(seg.userData && seg.userData.info)) seg = seg.parent;
-      setHover(seg);
-      if (!opts.tip) return;
-      if (!seg) { hideTip(); return; }
-      const info = seg.userData.info, bar = seg.parent.userData.bar;
-      const what = info.kind === 'piece' ? 'Pièce' : info.kind === 'rest' ? 'Reste remis en stock' : 'Déchet';
-      const from = bar.source === 'chute' ? 'chute #' + bar.num + ' (' + bar.length + ' mm)' : 'goulotte neuve ' + bar.length + ' mm';
-      opts.tip.innerHTML = `<b>${what} · ${info.len} mm</b><span>${short(bar.profile)} · ${from}</span>`;
-      opts.tip.style.left = (e.clientX - r.left) + 'px';
-      opts.tip.style.top = (e.clientY - r.top) + 'px';
-      opts.tip.hidden = false;
-    }
-
-    const view = { renderer, scene, dead: false, visible: true };
-    views[key] = view;
-    if ('ResizeObserver' in window) { view.ro = new ResizeObserver(resize); view.ro.observe(stage); }
-    if ('IntersectionObserver' in window) { view.io = new IntersectionObserver(en => { view.visible = en[0].isIntersecting; }); view.io.observe(stage); }
+    const view = { dead: false };
+    const ro = 'ResizeObserver' in window ? new ResizeObserver(resize) : null;
+    if (ro) ro.observe(stage);
     resize();
 
-    const ease = k => 1 - Math.pow(1 - Math.min(1, Math.max(0, k)), 3);
+    const lerp = (a, b, k) => a + (b - a) * k;
     function frame(now) {
-      const t = (now - state.t0) / 1000;
-      // Arrivée : chaque goulotte se pose à son tour, puis les pièces se séparent.
-      items.forEach((g, k) => {
-        const p = reduceMotion ? 1 : ease((t - k * 0.05) / 0.7);
-        g.position.y = (1 - p) * 2.2;
-        g.visible = p > 0;
+      const t = (now - st.t0) / 1000, T0 = now / 1000;
+      const k = reduceMotion ? 1 : 0.11;
+      if (st.grp) { const d = Math.min(1, (now - st.born) / 700); st.grp.position.y = reduceMotion ? 0 : 3.2 * Math.pow(1 - d, 3); }
+      const pulse = .5 + .5 * Math.sin(T0 * 5);
+      st.segs.forEach(s => {
+        const u = s.userData, g = u.tgt;
+        if (!g) return;
+        s.position.x = lerp(s.position.x, g.x, k);
+        s.position.y = lerp(s.position.y, g.y + (g.glow && u.kind === 'rest' ? Math.sin(T0 * 2.4) * 0.05 : 0), k);
+        s.position.z = lerp(s.position.z, g.z, k);
+        const e = g.glow ? (u.kind === 'piece' ? 0x4a3600 : u.kind === 'rest' ? 0x0f4a26 : 0x4a0f0a) : 0;
+        u.mats.forEach(m => {
+          m.opacity = lerp(m.opacity, g.o, k);
+          m.depthWrite = g.o > .9;
+          m.emissive.setHex(e);
+          m.emissiveIntensity = g.glow ? .55 + .45 * pulse : 0;
+        });
       });
-      const target = reduceMotion || t > 0.6 + items.length * 0.05 ? state.explode : 0;
-      state.explodeNow += (target - state.explodeNow) * 0.08;
-      items.forEach(g => g.userData.segs.forEach((s, k) => { s.position.x = s.userData.base + k * state.explodeNow * 0.28; }));
-      if (!state.interacted && !reduceMotion) goal.theta += opts.mini ? 0.004 : 0.0012;
-      cam.theta += (goal.theta - cam.theta) * 0.12;
-      cam.phi += (goal.phi - cam.phi) * 0.12;
-      cam.r += (goal.r - cam.r) * 0.1;
-      cam.target.lerp(goal.target, 0.12);
-      placeCamera();
+      if (saw.visible) {
+        wheel.rotation.x -= reduceMotion ? 0 : 0.35;
+        // Descente de la lame à travers la goulotte, puis remontée.
+        const c = (t % 2.6) / 2.6;
+        const p = c < .45 ? Math.sin(c / .45 * Math.PI / 2) : c < .6 ? 1 : Math.cos((c - .6) / .4 * Math.PI / 2);
+        saw.position.y = st.h + R + 0.35 - (st.h + 0.45) * (reduceMotion ? .5 : p);
+        laserMat.opacity = .35 + .45 * pulse;
+      }
+      // Recul calculé pour que toute la goulotte tienne dans le cadre.
+      goal.r = ((st.span || 4) * 0.6 / (Math.tan(17 * Math.PI / 180) * Math.max(.8, camera.aspect)) + 1.6);
+      const sway = reduceMotion ? 0 : Math.sin(T0 * .35) * .12;
+      cam.theta = lerp(cam.theta, goal.theta + sway, .08);
+      cam.phi = lerp(cam.phi, goal.phi, .08);
+      cam.r = lerp(cam.r, goal.r, .08);
+      cam.target.lerp(goal.target, .08);
+      const sp = Math.sin(cam.phi);
+      camera.position.set(cam.target.x + cam.r * sp * Math.sin(cam.theta), cam.target.y + cam.r * Math.cos(cam.phi), cam.target.z + cam.r * sp * Math.cos(cam.theta));
+      camera.lookAt(cam.target);
       renderer.render(scene, camera);
     }
     function loop(now) {
       if (view.dead) return;
-      if (view.visible && !document.hidden) frame(now);
+      if (!document.hidden && stage.offsetParent) frame(now);
       view.raf = requestAnimationFrame(loop);
     }
-    frame(performance.now());
     view.raf = requestAnimationFrame(loop);
 
     return {
-      setExplode(on) { state.explode = on ? 1 : 0.12; },
-      reset() { Object.assign(goal, { theta: home.theta, phi: home.phi, r: home.r, target: home.target.clone() }); state.focus = null; this.focus(null); },
-      focus(pr) {
-        state.focus = pr;
-        items.forEach(g => {
-          const on = !pr || g.userData.bar.profile === pr;
-          g.userData.segs.forEach(s => s.userData.mats.forEach(m => { m.transparent = !on; m.opacity = on ? 1 : 0.12; m.depthWrite = on; }));
-          if (g.userData.label) g.userData.label.material.opacity = on ? 1 : 0.15;
-        });
-        if (pr && groupsZ[pr]) {
-          const [a, b] = groupsZ[pr];
-          goal.target.set(0, 0.2, root.position.z + (a + b) / 2);
-          goal.r = Math.max(4, Math.min(home.r, (b - a) * 1.4 + maxLen * 0.75));
-          state.interacted = true;
-        }
-      },
-      // Image fixe (fond bleu) pour le PDF.
-      snapshot() {
-        renderer.setClearColor(0x1d3a6e, 1);
-        frame(performance.now() + 1e5);
-        const url = renderer.domElement.toDataURL('image/jpeg', 0.85);
-        renderer.setClearColor(0x000000, 0);
-        return url;
+      show,
+      dispose() {
+        view.dead = true;
+        cancelAnimationFrame(view.raf);
+        if (ro) ro.disconnect();
+        dispose(scene);
+        renderer.dispose();
+        if (renderer.forceContextLoss) renderer.forceContextLoss();
+        renderer.domElement.remove();
       }
     };
   }
 
-  return { mount, unmount, available: () => typeof THREE !== 'undefined' };
+  return { mount };
 })();
 
 /* ---------- Serveur Google ---------- */
@@ -1452,7 +1541,7 @@ function renderMachines() {
     const photo = machinePhoto(n);
     return `<article class="card machine${current === n ? ' current' : ''}" style="--k:${names.indexOf(n)}">
       <div class="mstage">
-        <span class="live">Plan affiché</span>
+        <span class="live">En cours</span>
         <span class="floor"></span>
         <img class="mirror" src="${photo}" alt="" draggable="false">
         <img class="mach" src="${photo}" alt="Machine ${esc(n)}" draggable="false">
@@ -1465,7 +1554,7 @@ function renderMachines() {
             <output class="num">${count}</output>
             <button type="button" data-step="1" data-m="${esc(n)}" aria-label="Une machine de plus">+</button>
           </div>
-          <button type="button" class="btn" data-go="${esc(n)}">Préparer</button>
+          <button type="button" class="btn" data-go="${esc(n)}">Découper</button>
         </div>
       </div>
     </article>`;
@@ -1736,119 +1825,6 @@ function summarise(bars) {
   };
 }
 
-function renderPlan() {
-  const out = $('planOut');
-  Duct3D.unmount('plan');
-  plan3d = null;
-  if (!plan) { out.hidden = true; out.innerHTML = ''; renderMachines(); return; }
-  const s = summarise(plan.bars);
-  let html = `
-    <div class="sectiontitle"><div class="planhead">${plan.machine ? `<img src="${machinePhoto(plan.machine)}" alt="">` : ''}<h2>Plan optimisé${plan.ref ? ' – ' + esc(plan.ref) : ''}</h2></div>
-      <div class="legend"><span><i style="background:var(--piece)"></i>Pièces</span><span><i style="background:var(--kerf)"></i>Trait de scie</span><span><i style="background:var(--rest)"></i>Reste en stock</span><span><i style="background:var(--scrap)"></i>Déchet</span></div>
-    </div>
-    <div class="card">
-      <div class="v3d" id="v3d">
-        <div class="stage" id="v3dStage"></div>
-        <div class="v3d-tools">
-          <button type="button" data-f3="" aria-pressed="true">Toutes</button>
-          ${PROFILES.filter(pr => plan.bars.some(b => b.profile === pr)).map(pr => `<button type="button" data-f3="${pr}" aria-pressed="false">${short(pr)}</button>`).join('')}
-          <span class="sp"></span>
-          <button type="button" id="v3dExplode" aria-pressed="false">Vue éclatée</button>
-          <button type="button" id="v3dReset">Recentrer</button>
-        </div>
-        <div class="v3d-tip" id="v3dTip" hidden></div>
-        <div class="v3d-foot"><span class="hint3d">Glisser pour tourner · molette pour zoomer · Maj + glisser pour déplacer · clic sur une pièce pour la retrouver</span></div>
-      </div>
-      ${brutAlert(plan.bars)}
-      <div class="stats">
-        <div class="stat hl"><b class="num" data-count="${s.newBars}">${s.newBars}</b><span>goulottes neuves (${settings.barLength} mm)</span></div>
-        <div class="stat"><b class="num" data-count="${s.used}">${s.used}</b><span>chutes du stock utilisées</span></div>
-        <div class="stat"><b class="num" data-count="${s.pieces}">${s.pieces}</b><span>pièces à couper</span></div>
-        <div class="stat"><b class="num" data-count="${s.scrap}">${s.scrap}</b><span>mm de déchet</span></div>
-      </div>`;
-  let idx = 0;
-  PROFILES.forEach(pr => {
-    const list = plan.bars.filter(b => b.profile === pr);
-    if (!list.length) return;
-    const nb = list.filter(b => b.source === 'barre').length;
-    html += `<div class="group"><h3>Goulotte ${short(pr)} <small>${list.length} goulotte(s) dont ${nb} neuve(s)</small></h3>`;
-    list.forEach((b, i) => {
-      const rest = remainderOf(b.pieces, b.length);
-      const keep = rest > 0 && rest >= mk(b.profile);
-      html += `<div class="planbar" id="pb-${plan.bars.indexOf(b)}">
-        <div class="head">
-          <strong>${i + 1}. ${b.source === 'chute' ? 'Chute <span class="tag">#' + b.num + '</span> ' + b.length + ' mm' : 'Goulotte neuve ' + b.length + ' mm'}</strong>
-          <span class="muted">${rest <= 0 ? 'aucun reste' : keep ? 'reste ' + rest + ' mm → stock' + (b.keptNum ? ' <span class="tag">#' + b.keptNum + '</span>' : '') : 'reste ' + rest + ' mm → déchet'}</span>
-        </div>
-        ${barDiagram(b.pieces, b.length, idx++, b.profile)}
-        <div class="muted">Coupes : ${b.pieces.map(x => x + ' mm').join(' · ')}</div>
-      </div>`;
-    });
-    html += '</div>';
-  });
-  html += `<div class="actions">
-      <button type="button" class="btn" id="guideBtn">${plan.guideStep ? 'Reprendre le pas à pas' : 'Démarrer la découpe pas à pas'}</button>
-      ${plan.applied ? '<span class="muted" style="align-self:center">Stock mis à jour ✓</span>'
-        : brutNeeds(plan.bars).some(r => r.missing > 0) ? '<button type="button" class="btn ghost" disabled title="Bruts insuffisants">Validation bloquée : bruts insuffisants</button>'
-        : '<button type="button" class="btn ghost" id="applyBtn">Valider : mettre le stock à jour</button>'}
-      <button type="button" class="btn ghost" id="cancelPlan">${plan.applied ? 'Fermer' : 'Annuler le plan'}</button>
-    </div>
-    </div>`;
-  out.innerHTML = html;
-  out.hidden = false;
-  countUp(out);
-  renderMachines();
-  const shown = plan;
-  $('v3dStage').innerHTML = '<div class="v3d-off">Chargement de la vue 3D…</div>';
-  ensureThree().then(() => {
-    if (plan !== shown || !$('v3dStage')) return;
-    $('v3dStage').innerHTML = '';
-    mountPlan3d();
-  }, () => { $('v3dStage').innerHTML = '<div class="v3d-off">La vue 3D n\'est pas disponible sur ce poste : le plan reste détaillé ci-dessous.</div>'; });
-}
-
-// La bibliothèque 3D (≈ 600 Ko) n'est chargée qu'à l'ouverture du premier plan.
-let threeLoading = null;
-function ensureThree() {
-  if (typeof THREE !== 'undefined') return Promise.resolve();
-  if (!threeLoading) threeLoading = new Promise((ok, ko) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-    s.onload = ok;
-    s.onerror = () => { threeLoading = null; ko(); };
-    document.head.appendChild(s);
-  });
-  return threeLoading;
-}
-
-function mountPlan3d() {
-  plan3d = Duct3D.mount('plan', $('v3dStage'), plan.bars, {
-    tip: $('v3dTip'),
-    onPick: i => {
-      const el = $('pb-' + i);
-      if (!el) return;
-      el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
-      el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
-      setTimeout(() => el.classList.remove('flash'), 1400);
-    }
-  });
-  if (!plan3d) $('v3dStage').innerHTML = '<div class="v3d-off">La vue 3D n\'est pas disponible sur ce poste : le plan reste détaillé ci-dessous.</div>';
-}
-
-async function computePlan() {
-  const { pieces, error } = readLines();
-  if (error) { toast(error); return; }
-  if (!pieces.length) { toast('Ajoutez au moins une pièce : section, longueur et quantité.'); return; }
-  await showPlan(pieces, $('planRef').value.trim(), null);
-}
-
-async function showPlan(pieces, ref, machine) {
-  await refresh();
-  plan = { ref, bars: optimise(pieces), applied: false, machine };
-  renderPlan();
-  $('planOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 // Plan d'une machine : calculé directement, sans remplir la découpe sur mesure.
 function prepareMachine(name) {
   const count = machineCount[name] || 1;
@@ -1866,25 +1842,29 @@ function planPayload() {
   };
 }
 
-/* ---------- Découpe pas à pas ---------- */
-// L'opérateur est guidé du début à la fin : ce qu'il prend, ce qu'il coupe, ce qu'il range, ce qu'il jette.
+/* ---------- Découpe guidée ---------- */
+// Fenêtre pas à pas : ce qu'il faut prendre, couper, ranger ou jeter, de la première à la dernière goulotte.
 const Guide = (() => {
-  let steps = [], k = 0, busy = false;
+  let steps = [], k = 0, busy = false, scene = null, sceneTried = false, armedQuit = false;
+  const el = () => $('guide');
 
   function orderedBars() {
     const list = [];
     PROFILES.forEach(pr => plan.bars.forEach((b, i) => { if (b.profile === pr) list.push(i); }));
     return list;
   }
+  const isKept = b => { const r = remainderOf(b.pieces, b.length); return r > 0 && r >= mk(b.profile); };
+  const missing = () => brutNeeds(plan.bars).some(r => r.missing > 0);
+  const nPieces = () => plan.bars.reduce((t, b) => t + b.pieces.length, 0);
 
   function build() {
     const order = orderedBars();
     const out = [{ type: 'prep' }];
     order.forEach((bi, n) => {
-      const b = plan.bars[bi];
-      out.push({ type: 'take', bi, n, total: order.length });
-      b.pieces.forEach((len, j) => out.push({ type: 'cut', bi, j, n, total: order.length }));
-      if (remainderOf(b.pieces, b.length) > 0) out.push({ type: 'rest', bi, n, total: order.length });
+      const b = plan.bars[bi], o = { bi, n, total: order.length };
+      out.push({ type: 'take', ...o });
+      b.pieces.forEach((len, j) => out.push({ type: 'cut', j, ...o }));
+      if (remainderOf(b.pieces, b.length) > 0) out.push({ type: 'rest', ...o });
     });
     out.push({ type: 'validate' });
     if (plan.bars.some(isKept)) out.push({ type: 'mark' });
@@ -1892,10 +1872,25 @@ const Guide = (() => {
     return out;
   }
 
-  const isKept = b => { const r = remainderOf(b.pieces, b.length); return r > 0 && r >= mk(b.profile); };
-  const src = b => b.source === 'chute' ? `la chute <b>#${b.num}</b> de ${b.length} mm` : `une goulotte neuve de ${b.length} mm`;
+  const ICON = {
+    take: '<svg viewBox="0 0 24 24"><path d="M3 9h18v6H3z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 9V6h10v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+    cut: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2"/></svg>',
+    keep: '<svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    scrap: '<svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>'
+  };
 
-  function bar(b, j, mode) {
+  // Liste des pièces de la goulotte en cours : faites, en cours, à venir, puis le reste.
+  function track(b, j, mode) {
+    const rest = remainderOf(b.pieces, b.length);
+    const chips = b.pieces.map((len, i) => {
+      const st = mode === 'rest' || (mode === 'cut' && i < j) ? 'done' : mode === 'cut' && i === j ? 'cur' : '';
+      return `<li class="${st}"><span>${st === 'done' ? '✓' : i + 1}</span>${len}</li>`;
+    }).join('');
+    const r = rest > 0 ? `<li class="r ${isKept(b) ? 'keep' : 'scrap'}${mode === 'rest' ? ' cur' : ''}"><span>${isKept(b) ? '↺' : '✕'}</span>${rest}</li>` : '';
+    return `<ul class="gtrack num">${chips}${r}</ul>`;
+  }
+
+  function bar2d(b, j, mode) {
     const total = b.length, rest = remainderOf(b.pieces, total), pct = v => (v / total * 100) + '%';
     let h = '';
     b.pieces.forEach((len, i) => {
@@ -1907,114 +1902,137 @@ const Guide = (() => {
     return `<div class="bar gbar">${h}</div>`;
   }
 
-  function head(kicker, s, cls) {
-    const b = plan.bars[s.bi];
-    return `<div class="gk ${cls || ''}">${kicker}</div>
-      <div class="gsub">${esc(short(b.profile))} · goulotte ${s.n + 1} / ${s.total}</div>`;
+  function kind(s) {
+    if (s.type === 'rest') return isKept(plan.bars[s.bi]) ? 'keep' : 'scrap';
+    return s.type;
   }
 
-  function body(s) {
+  function panel(s) {
+    const b = plan.bars[s.bi];
+    const where = b ? `<div class="gwhere"><span class="gsec">${esc(short(b.profile))}</span>Goulotte ${s.n + 1} sur ${s.total}</div>` : '';
+    if (s.type === 'take') return `${where}
+      <div class="gk">${ICON.take}Prendre</div>
+      <h2 class="gtitle">${b.source === 'chute' ? `La chute <span class="tag big">#${b.num}</span>` : 'Une goulotte neuve'}</h2>
+      <p class="gtxt">${b.length} mm en <b>${esc(short(b.profile))}</b>, ${b.source === 'chute' ? 'dans le stock de chutes' : 'dans les bruts'}.</p>
+      <p class="gsmall">${b.pieces.length} pièce${b.pieces.length > 1 ? 's' : ''} à en tirer :</p>
+      ${track(b, -1, 'take')}`;
+    if (s.type === 'cut') {
+      const len = b.pieces[s.j], left = b.length - usedLength(b.pieces.slice(0, s.j), b.length), exact = left === len;
+      return `${where}
+        <div class="gk">${ICON.cut}Couper · pièce ${s.j + 1} / ${b.pieces.length}</div>
+        <h2 class="gtitle gnum num"><span data-count="${len}">${len}</span><small> mm</small></h2>
+        <p class="gtxt">${exact ? `Le morceau restant fait exactement ${len} mm : <b>pas de coupe</b>, c'est la pièce.`
+          : `Mesurez <b>${len} mm</b> depuis le bout, tracez, coupez.`}</p>
+        <p class="gsmall">${exact ? '' : `Longueur avant la coupe : ${left} mm. `}Posez la pièce avec les ${esc(short(b.profile))}.</p>
+        ${track(b, s.j, 'cut')}`;
+    }
+    if (s.type === 'rest') {
+      const rest = remainderOf(b.pieces, b.length);
+      if (isKept(b)) return `${where}
+        <div class="gk">${ICON.keep}Ranger la chute</div>
+        <h2 class="gtitle gnum num"><span data-count="${rest}">${rest}</span><small> mm</small></h2>
+        <p class="gtxt">${b.keptNum ? `Écrivez <span class="tag big">#${b.keptNum}</span> dessus et rangez-la avec les ${esc(short(b.profile))}.`
+          : `Mettez cette chute de côté : son numéro vous est donné à la fin.`}</p>
+        ${track(b, -1, 'rest')}`;
+      return `${where}
+        <div class="gk">${ICON.scrap}Jeter</div>
+        <h2 class="gtitle gnum num"><span data-count="${rest}">${rest}</span><small> mm</small></h2>
+        <p class="gtxt">Trop court pour être gardé (moins de ${mk(b.profile)} mm) : <b>à la benne</b>.</p>
+        ${track(b, -1, 'rest')}`;
+    }
+    return '';
+  }
+
+  function wide(s) {
     if (s.type === 'prep') {
       const rows = PROFILES.map(pr => {
         const list = plan.bars.filter(b => b.profile === pr);
         if (!list.length) return '';
         const nb = list.filter(b => b.source === 'barre').length;
         const ch = list.filter(b => b.source === 'chute');
-        return `<li>${ductSVG(pr, 'gphoto')}<div><b>${esc(short(pr))}</b><br>
-          ${nb ? `${nb} goulotte${nb > 1 ? 's' : ''} neuve${nb > 1 ? 's' : ''} (${settings.barLength} mm) dans les bruts` : ''}
-          ${nb && ch.length ? '<br>' : ''}
-          ${ch.length ? `Chute${ch.length > 1 ? 's' : ''} du stock : ${ch.map(c => `<span class="tag">#${c.num}</span> ${c.length} mm`).join(' · ')}` : ''}</div></li>`;
+        const need = brutNeeds(plan.bars).find(r => r.profile === pr);
+        return `<li class="${need && need.missing ? 'miss' : ''}">${ductSVG(pr, 'gphoto')}
+          <div><b>${esc(short(pr))}</b>
+          ${nb ? `<span>${nb} goulotte${nb > 1 ? 's' : ''} neuve${nb > 1 ? 's' : ''} · bruts${need && need.missing ? ` <em>il en manque ${need.missing}</em>` : ''}</span>` : ''}
+          ${ch.length ? `<span>Chute${ch.length > 1 ? 's' : ''} : ${ch.map(c => `<span class="tag">#${c.num}</span> ${c.length} mm`).join(' ')}</span>` : ''}</div></li>`;
       }).join('');
-      const n = plan.bars.reduce((t, b) => t + b.pieces.length, 0);
+      const nb = plan.bars.filter(b => b.source === 'barre').length, nc = plan.bars.length - nb;
       return `<div class="gk">Préparer</div>
-        <h2 class="gbig">Rassemblez la matière</h2>
-        <ul class="glist">${rows}</ul>
-        <p class="gtxt">${n} pièce${n > 1 ? 's' : ''} à couper. Trait de scie : ${settings.kerf} mm, déjà compté dans le plan.</p>`;
-    }
-    if (s.type === 'take') {
-      const b = plan.bars[s.bi];
-      return `${head('Prendre', s)}
-        <div class="gsplit">${ductSVG(b.profile, 'gphoto big')}
-        <div><h2 class="gbig">${b.source === 'chute' ? `Chute <span class="tag">#${b.num}</span>` : 'Goulotte neuve'}</h2>
-        <p class="gtxt">Prenez ${src(b)} en <b>${esc(short(b.profile))}</b>${b.source === 'chute' ? ' dans le stock de chutes' : ' dans les bruts'}.</p>
-        <p class="gtxt">Elle donnera ${b.pieces.length} pièce${b.pieces.length > 1 ? 's' : ''} : ${b.pieces.map(x => x + ' mm').join(' · ')}.</p></div></div>
-        ${bar(b, -1, 'take')}`;
-    }
-    if (s.type === 'cut') {
-      const b = plan.bars[s.bi], len = b.pieces[s.j];
-      const before = usedLength(b.pieces.slice(0, s.j), b.length);
-      const left = b.length - before;
-      const exact = left === len;
-      return `${head(`Couper · pièce ${s.j + 1} / ${b.pieces.length}`, s)}
-        <h2 class="gbig num">${len} <small>mm</small></h2>
-        <p class="gtxt">${exact
-          ? `Le morceau restant fait exactement ${len} mm : <b>pas de coupe</b>, c'est la pièce.`
-          : `Mesurez <b>${len} mm</b> depuis le bout et coupez. Il vous reste ${left} mm avant la coupe.`}</p>
-        <p class="gtxt muted">Posez la pièce avec les autres ${esc(short(b.profile))}.</p>
-        ${bar(b, s.j, 'cut')}`;
-    }
-    if (s.type === 'rest') {
-      const b = plan.bars[s.bi], rest = remainderOf(b.pieces, b.length);
-      if (isKept(b)) return `${head('Ranger la chute', s, 'ok')}
-        <h2 class="gbig num ok">${rest} <small>mm</small></h2>
-        <p class="gtxt">${b.keptNum
-          ? `Écrivez <span class="tag big">#${b.keptNum}</span> et « ${rest} mm » sur la chute, puis rangez-la avec les ${esc(short(b.profile))}.`
-          : `Gardez cette chute ${esc(short(b.profile))} de côté. Son numéro vous sera donné à la fin, au moment de la ranger.`}</p>
-        ${bar(b, -1, 'rest')}`;
-      return `${head('Jeter', s, 'ko')}
-        <h2 class="gbig num ko">${rest} <small>mm</small></h2>
-        <p class="gtxt">Ce reste est trop court pour être gardé (moins de ${mk(b.profile)} mm) : <b>jetez-le</b>.</p>
-        ${bar(b, -1, 'rest')}`;
+        <h2 class="gtitle">Sortez la matière</h2>
+        <div class="gstats"><div><b class="num" data-count="${nPieces()}">${nPieces()}</b>pièces à couper</div><div><b class="num" data-count="${nb}">${nb}</b>goulottes neuves</div><div><b class="num" data-count="${nc}">${nc}</b>chutes réutilisées</div></div>
+        <ul class="gprep">${rows}</ul>
+        ${missing() ? '<div class="alert">Bruts insuffisants : prévenez l\'espace méthode avant de commencer.</div>' : ''}`;
     }
     if (s.type === 'validate') {
-      if (plan.applied) return `<div class="gk">Valider</div><h2 class="gbig">Stock déjà mis à jour ✓</h2>`;
-      const miss = brutNeeds(plan.bars).some(r => r.missing > 0);
-      return `<div class="gk">Valider</div>
-        <h2 class="gbig">Toutes les coupes sont faites ?</h2>
-        <p class="gtxt">La validation retire du stock les goulottes et chutes utilisées et enregistre les nouvelles chutes.</p>
-        ${miss ? brutAlert(plan.bars) : ''}`;
+      if (plan.applied) return `<div class="gk">Valider</div><h2 class="gtitle">Stock déjà mis à jour ✓</h2>`;
+      return `<div class="gbadge">${ICON.keep}</div>
+        <div class="gk">Valider</div>
+        <h2 class="gtitle">Toutes les coupes sont faites ?</h2>
+        <p class="gtxt">La validation retire du stock la matière utilisée et enregistre les nouvelles chutes.</p>
+        ${missing() ? brutAlert(plan.bars) : ''}`;
     }
     if (s.type === 'mark') {
       const list = orderedBars().map(i => plan.bars[i]).filter(isKept);
       return `<div class="gk">Repérer les chutes</div>
-        <h2 class="gbig">Écrivez le numéro sur chaque chute</h2>
-        <ul class="gmark">${list.map(b => `<li><span class="tag big">#${b.keptNum || '?'}</span><b>${esc(short(b.profile))}</b><span class="num">${remainderOf(b.pieces, b.length)} mm</span></li>`).join('')}</ul>
-        <p class="gtxt">Puis rangez-les dans le stock de chutes, avec leur section.</p>`;
+        <h2 class="gtitle">Écrivez le numéro sur chaque chute</h2>
+        <ul class="gmark">${list.map(b => `<li><span class="tag big">#${b.keptNum || '?'}</span>${ductSVG(b.profile, 'gphoto')}<b>${esc(short(b.profile))}</b><span class="num">${remainderOf(b.pieces, b.length)} mm</span></li>`).join('')}</ul>`;
     }
-    const n = plan.bars.reduce((t, b) => t + b.pieces.length, 0);
-    return `<div class="gk">Terminé</div>
-      <h2 class="gbig ok">Découpe terminée ✓</h2>
-      <p class="gtxt">${n} pièce${n > 1 ? 's' : ''} coupée${n > 1 ? 's' : ''}${plan.ref ? ' pour ' + esc(plan.ref) : ''}. Le stock est à jour.</p>`;
+    return `<div class="gbadge ok">${ICON.keep}</div>
+      <div class="gk">Terminé</div>
+      <h2 class="gtitle">Découpe terminée</h2>
+      <p class="gtxt">${nPieces()} pièce${nPieces() > 1 ? 's' : ''} coupée${nPieces() > 1 ? 's' : ''}${plan.ref ? ' pour ' + esc(plan.ref) : ''}. Le stock est à jour.</p>`;
+  }
+
+  function nextBtn(s) {
+    const last = k === steps.length - 1;
+    if (last) return '<button type="button" class="btn gnext" data-g="finish">Terminer</button>';
+    if (s.type === 'prep' && missing()) return '<button type="button" class="btn gnext" disabled>Bruts insuffisants</button>';
+    if (s.type === 'validate' && !plan.applied) return missing()
+      ? '<button type="button" class="btn gnext" disabled>Validation bloquée</button>'
+      : `<button type="button" class="btn gnext" data-g="apply"${busy ? ' disabled' : ''}>${busy ? 'Enregistrement…' : 'Valider la découpe'}</button>`;
+    const lab = { prep: 'C\'est prêt, on commence', take: 'Je l\'ai, suivant', cut: 'Coupé, suivant', keep: 'Rangée, suivant', scrap: 'Jeté, suivant', mark: 'C\'est noté, suivant' }[kind(s)] || 'Suivant';
+    return `<button type="button" class="btn gnext" data-g="next">${lab} →</button>`;
+  }
+
+  function ensureScene() {
+    if (scene || sceneTried) return;
+    sceneTried = true;
+    ensureThree().then(() => {
+      if (el().hidden || scene) return;
+      scene = Cut3D.mount($('g3d'));
+      if (scene) { el().classList.add('has3d'); render(); }
+    }, () => {});
   }
 
   function render() {
-    const s = steps[k], el = $('guide');
-    const last = k === steps.length - 1;
-    let next = `<button type="button" class="btn gnext" data-g="next">${k === 0 ? 'C\'est prêt, on commence' : 'Fait, suivant →'}</button>`;
-    if (s.type === 'validate' && !plan.applied) {
-      next = brutNeeds(plan.bars).some(r => r.missing > 0)
-        ? '<button type="button" class="btn gnext" disabled>Validation bloquée : bruts insuffisants</button>'
-        : `<button type="button" class="btn gnext" data-g="apply"${busy ? ' disabled' : ''}>${busy ? 'Enregistrement…' : 'Valider : mettre le stock à jour'}</button>`;
+    const s = steps[k], is3d = ['take', 'cut', 'rest'].includes(s.type);
+    const box = el();
+    box.dataset.kind = kind(s);
+    box.classList.toggle('flat', !is3d);
+    $('gRef').textContent = plan.ref || 'Découpe sur mesure';
+    $('gMach').innerHTML = plan.machine ? `<img src="${machinePhoto(plan.machine)}" alt="">` : '';
+    $('gCount').textContent = `Étape ${k + 1} / ${steps.length}`;
+    $('gChip').textContent = { take: 'Prendre', cut: 'Couper', keep: 'Ranger', scrap: 'Jeter' }[kind(s)] || '';
+    $('gProg').style.width = ((k + 1) / steps.length * 100) + '%';
+    const p = $('gPanel');
+    p.innerHTML = is3d ? panel(s) : wide(s);
+    p.classList.remove('in'); void p.offsetWidth; p.classList.add('in');
+    countUp(p);
+    $('g2d').innerHTML = is3d ? bar2d(plan.bars[s.bi], s.j, s.type) : '';
+    $('gFoot').innerHTML = `<button type="button" class="btn ghost" data-g="prev"${k === 0 ? ' disabled' : ''}>← Retour</button>${nextBtn(s)}`;
+    if (is3d && scene) {
+      const b = plan.bars[s.bi];
+      const exact = s.type === 'cut' && b.length - usedLength(b.pieces.slice(0, s.j), b.length) === b.pieces[s.j];
+      scene.show(b, s.type, s.type === 'cut' ? s.j : -1, { exact, num: b.keptNum });
     }
-    if (last) next = '<button type="button" class="btn gnext" data-g="close">Fermer</button>';
-    el.innerHTML = `<div class="gtop wrap">
-        <div><b>${esc(plan.ref || 'Découpe')}</b> <span class="muted">· étape ${k + 1} / ${steps.length}</span></div>
-        <button type="button" class="btn ghost small" data-g="close">${last ? 'Fermer' : 'Quitter'}</button>
-      </div>
-      <div class="gprog"><i style="width:${(k + 1) / steps.length * 100}%"></i></div>
-      <div class="gbody wrap" data-type="${s.type}">${body(s)}</div>
-      <div class="gfoot wrap">
-        <button type="button" class="btn ghost" data-g="prev"${k === 0 ? ' disabled' : ''}>← Retour</button>
-        ${next}
-      </div>`;
     plan.guideStep = k;
-    el.querySelector('.gbody').focus({ preventScroll: true });
+    plan.stepsTotal = steps.length;
   }
 
   function go(d) {
     if (busy) return;
     const s = steps[k];
-    if (d > 0 && s.type === 'validate' && !plan.applied) return;
+    if (d > 0 && ((s.type === 'validate' && !plan.applied) || (s.type === 'prep' && missing()))) return;
     k = Math.max(0, Math.min(steps.length - 1, k + d));
     render();
   }
@@ -2026,7 +2044,6 @@ const Guide = (() => {
       plan.bars.forEach((b, i) => { b.keptNum = r.keptNums[i]; });
       plan.applied = true;
       busy = false;
-      renderPlan();
       k++; render();
     } catch (e) { busy = false; render(); toast(e.message); }
   }
@@ -2035,19 +2052,29 @@ const Guide = (() => {
     if (!plan) return;
     steps = build();
     k = Math.min(plan.guideStep || 0, steps.length - 1);
-    $('guide').hidden = false;
+    armedQuit = false;
+    el().hidden = false;
     document.body.classList.add('guiding');
     render();
+    ensureScene();
+    el().querySelector('.gbox').focus({ preventScroll: true });
   }
 
   function close() {
     if (busy) return;
-    $('guide').hidden = true;
+    el().hidden = true;
     document.body.classList.remove('guiding');
-    if (plan) renderPlan();
+    renderPlan();
   }
 
-  $('guide').addEventListener('click', e => {
+  function finish() {
+    close();
+    endCut();
+    toast('Découpe terminée, stock à jour.');
+  }
+
+  el().addEventListener('click', e => {
+    if (e.target === el()) { close(); return; }
     const b = e.target.closest('button[data-g]');
     if (!b || b.disabled) return;
     const g = b.dataset.g;
@@ -2055,32 +2082,71 @@ const Guide = (() => {
     else if (g === 'prev') go(-1);
     else if (g === 'apply') apply();
     else if (g === 'close') close();
+    else if (g === 'finish') finish();
   });
   document.addEventListener('keydown', e => {
-    if ($('guide').hidden) return;
+    if (el().hidden) return;
     if (e.key === 'Escape') close();
     else if (e.key === 'ArrowLeft') go(-1);
-    else if ((e.key === 'ArrowRight' || e.key === 'Enter') && !(steps[k].type === 'validate' && !plan.applied) && k < steps.length - 1) { e.preventDefault(); go(1); }
+    else if ((e.key === 'ArrowRight' || (e.key === 'Enter' && !e.target.closest('button'))) && k < steps.length - 1) { e.preventDefault(); go(1); }
   });
-  return { open, close };
+  return { open, close, isOpen: () => !el().hidden };
 })();
 
-async function applyPlan(btn) {
-  if (!btn.dataset.armed) { btn.dataset.armed = '1'; btn.textContent = 'Confirmer : les coupes sont faites'; btn.classList.add('danger'); return; }
-  btn.disabled = true;
-  try {
-    const r = await server('applyPlan', planPayload());
-    plan.bars.forEach((b, i) => { b.keptNum = r.keptNums[i]; });
-    plan.applied = true;
-    renderPlan();
-    const n = r.keptNums.filter(Boolean);
-    toast(!n.length ? 'Stock mis à jour.'
-      : n.length <= 8 ? `Stock mis à jour. Marquez les chutes : ${n.map(x => '#' + x).join(', ')}.`
-      : `Stock mis à jour. ${n.length} chutes à marquer : numéros affichés sur le plan.`);
-  } catch (e) {
-    toast(e.message);
-    btn.disabled = false;
-  }
+// Carte « découpe en cours » sur la page Découpe, pour reprendre ou abandonner.
+function renderPlan() {
+  const out = $('planOut');
+  renderMachines();
+  if (!plan) { out.hidden = true; out.innerHTML = ''; return; }
+  const k = plan.guideStep || 0, n = plan.stepsTotal || 1;
+  out.innerHTML = `<div class="card resume">
+      <div class="rimg">${plan.machine ? `<img src="${machinePhoto(plan.machine)}" alt="">` : ductSVG(plan.bars[0] ? plan.bars[0].profile : PROFILES[0], 'gphoto')}</div>
+      <div class="rtxt"><span class="gk">Découpe en cours</span><h3>${esc(plan.ref || 'Découpe sur mesure')}</h3>
+        <div class="rprog"><i style="width:${(k + 1) / n * 100}%"></i></div>
+        <span class="muted">${plan.applied ? 'Stock mis à jour · il reste à repérer les chutes' : `Étape ${k + 1} sur ${n}`}</span></div>
+      <div class="ract">
+        <button type="button" class="btn" id="resumeCut">Reprendre</button>
+        <button type="button" class="btn ghost" id="abortCut">${plan.applied ? 'Terminer' : 'Abandonner'}</button>
+      </div>
+    </div>`;
+  out.hidden = false;
+}
+
+function endCut() {
+  plan = null;
+  renderPlan();
+  $('lines').innerHTML = '';
+  addLine();
+  $('planRef').value = '';
+  Object.keys(machineCount).forEach(k => delete machineCount[k]);
+  renderMachines();
+}
+
+// La bibliothèque 3D (≈ 600 Ko) n'est chargée qu'à la première découpe.
+let threeLoading = null;
+function ensureThree() {
+  if (typeof THREE !== 'undefined') return Promise.resolve();
+  if (!threeLoading) threeLoading = new Promise((ok, ko) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    s.onload = ok;
+    s.onerror = () => { threeLoading = null; ko(); };
+    document.head.appendChild(s);
+  });
+  return threeLoading;
+}
+
+async function computePlan() {
+  const { pieces, error } = readLines();
+  if (error) { toast(error); return; }
+  if (!pieces.length) { toast('Ajoutez au moins une pièce : section, longueur et quantité.'); return; }
+  await showPlan(pieces, $('planRef').value.trim(), null);
+}
+
+async function showPlan(pieces, ref, machine) {
+  await refresh();
+  plan = { ref, bars: optimise(pieces), applied: false, machine, guideStep: 0 };
+  Guide.open();
 }
 
 /* ---------- Achat ---------- */
@@ -2677,34 +2743,13 @@ function resetRemove() {
 }
 ['brutProfile', 'brutQty'].forEach(id => $(id).addEventListener('input', resetRemove));
 $('planOut').addEventListener('click', e => {
-  const f3 = e.target.closest('button[data-f3]');
-  if (f3 && plan3d) {
-    document.querySelectorAll('#v3d button[data-f3]').forEach(b => b.setAttribute('aria-pressed', String(b === f3)));
-    if (f3.dataset.f3) plan3d.focus(f3.dataset.f3); else plan3d.reset();
-  }
-  if (e.target.id === 'v3dExplode' && plan3d) {
-    const on = e.target.getAttribute('aria-pressed') !== 'true';
-    e.target.setAttribute('aria-pressed', String(on));
-    plan3d.setExplode(on);
-  }
-  if (e.target.id === 'v3dReset' && plan3d) {
-    plan3d.reset();
-    document.querySelectorAll('#v3d button[data-f3]').forEach(b => b.setAttribute('aria-pressed', String(!b.dataset.f3)));
-  }
-  if (e.target.closest('#guideBtn')) Guide.open();
-  if (e.target.id === 'applyBtn') applyPlan(e.target);
-  if (e.target.id === 'cancelPlan') {
-    Guide.close();
-    plan = null;
-    renderPlan();
-    $('lines').innerHTML = '';
-    addLine();
-    $('planRef').value = '';
-    Object.keys(machineCount).forEach(k => delete machineCount[k]);
-    renderMachines();
-    window.scrollTo(0, 0);
-    toast('Plan annulé : rien n\'a été modifié dans le stock.');
-  }
+  if (e.target.closest('#resumeCut')) Guide.open();
+  const ab = e.target.closest('#abortCut');
+  if (!ab) return;
+  if (!plan.applied && !ab.dataset.armed) { ab.dataset.armed = '1'; ab.textContent = 'Confirmer l\'abandon'; ab.classList.add('danger'); return; }
+  const applied = plan.applied;
+  endCut();
+  toast(applied ? 'Découpe terminée.' : 'Découpe abandonnée : rien n\'a été modifié dans le stock.');
 });
 $('miscutToggle').addEventListener('click', () => {
   const open = $('miscutForm').hidden;
