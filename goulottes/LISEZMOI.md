@@ -67,8 +67,8 @@ L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) reg
 ## Bons de commande
 Modèle INSIDIX (bandeau, fournisseur, adresses, tableau, totaux HT/TVA/TTC, conditions, pied de page légal) — voir
 `exemple-bon-de-commande.pdf`. Numérotation automatique G00001, G00002…
-- Créé et envoyé en pièce jointe à `ALERTE_EMAIL` : à chaque **achat validé** (Commande immédiate) et avec chaque
-  **e-mail « à commander »** du Planning (arrivée prévue = lundi de la semaine avant la fabrication).
+- Créé et envoyé en pièce jointe à `ALERTE_EMAIL` : à chaque **achat validé** (Commande immédiate, quantités revérifiées
+  au moment de valider) et pour chaque ligne du Planning **1 semaine avant** la fabrication (calcul fait le jour de l'envoi).
 - Réglages dans **Espace méthode → Paramètres → Bons de commande** : fournisseur, contact, conditions, TVA,
   référence article et prix unitaire HT par section. Bouton « Envoyer un e-mail de test ».
 - PDF rangés dans Google Drive (dossier « Bons de commande goulottes »), liste dans l'onglet **Bons de commande** du tableau.
@@ -95,7 +95,7 @@ avec un numéro à écrire dessus. Les deux cas apparaissent dans l'Historique (
   Choisir la semaine de fabrication, la machine et la quantité, « Ajouter au planning » (enregistré tout de suite).
   Chaque ligne affiche les bruts nécessaires, ce qu'il reste **à acheter** (le stock actuel couvre d'abord les commandes
   les plus proches) et la semaine de livraison des bruts (une semaine avant la fabrication). « Supprimer » retire une ligne.
-- **Mail « à commander »** : 2 semaines avant la semaine de fabrication, un e-mail part à `ALERTE_EMAIL`
+- **Bon de commande planifié** : envoyé **1 semaine avant** la fabrication, avec les quantités recalculées **le jour de l'envoi** (chutes, bruts et livraisons déjà commandées). La livraison correspondante entre en stock la semaine de fabrication. (Ancien fonctionnement : 2 semaines avant la semaine de fabrication, un e-mail part à `ALERTE_EMAIL`
   (simon.scalvini@insidix.com) avec la liste des bruts à commander. Un seul e-mail par ligne ; la colonne « Mail de commande »
   indique la semaine d'envoi puis « Envoyé ✓ ». Une vérification quotidienne (7 h) est installée automatiquement par Google
   au premier enregistrement du planning, pour que le mail parte même si personne n'ouvre le site.

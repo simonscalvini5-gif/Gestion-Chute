@@ -645,7 +645,7 @@
       </div>
 
       <section data-at="plan" hidden>
-        <div class="sectiontitle"><h2>Planning des machines</h2><p class="muted">Mail « à commander » 2 semaines avant · bruts livrés automatiquement 1 semaine avant</p></div>
+        <div class="sectiontitle"><h2>Planning des machines</h2><p class="muted">Bon de commande envoyé 1 semaine avant, recalculé le jour même · bruts entrés en stock la semaine de fabrication</p></div>
         <form class="card planadd" id="planForm">
           <div><label for="planWeek">Semaine de fabrication</label><input id="planWeek" type="week" required></div>
           <div><label for="planMachine">Machine</label><select id="planMachine"></select></div>
@@ -1922,7 +1922,7 @@ async function achatCompute() {
   const rows = brutNeeds(bars);
   const used = bars.filter(b => b.source === 'chute').length;
   const ref = $('achatRef').value.trim() || chosen.map(n => orderCount[n] > 1 ? `${n} × ${orderCount[n]}` : n).join(' + ');
-  achatPlan = { ref, rows };
+  achatPlan = { ref, rows, pieces };
   const out = $('achatOut');
   out.innerHTML = `
     <div class="sectiontitle"><h2>Bruts à acheter</h2><p class="muted">${esc(ref)}</p></div>
@@ -1957,6 +1957,16 @@ async function achatValidate(btn) {
   const lines = [...document.querySelectorAll('#achatOut input.buy')].map(i => ({ profile: i.dataset.p, qty: Math.max(0, Math.round(Number(i.value) || 0)) }))
     .filter(l => l.qty > 0);
   if (!lines.length) { toast('Toutes les quantités sont à 0 : rien à ajouter.'); return; }
+  if (!btn.dataset.armed && achatPlan && achatPlan.pieces) {
+    // Vérification au dernier moment : chutes et bruts ont-ils changé depuis le calcul ?
+    await refresh();
+    const fresh = brutNeeds(optimise(achatPlan.pieces)).map(r => r.profile + ':' + r.missing).join('|');
+    if (fresh !== achatPlan.rows.map(r => r.profile + ':' + r.missing).join('|')) {
+      toast('Le stock a changé depuis le calcul : quantités mises à jour, vérifiez puis validez.');
+      achatCompute();
+      return;
+    }
+  }
   if (!btn.dataset.armed) {
     btn.dataset.armed = '1';
     btn.classList.add('danger');
@@ -2059,7 +2069,7 @@ let planRows = [];
 
 function loadPlanning(p) {
   planning = p;
-  planRows = p.forecasts.map(f => ({ week: f.week, machine: f.machine, qty: f.qty, sent: f.sent }))
+  planRows = p.forecasts.map(f => ({ week: f.week, machine: f.machine, qty: f.qty, sent: f.sent, buyText: f.buy }))
     .sort((a, b) => a.week < b.week ? -1 : a.week > b.week ? 1 : 0);
   renderPlanning();
 }
@@ -2077,10 +2087,13 @@ function rowNeed(r) {
 }
 
 // Bruts à acheter par ligne : le stock actuel couvre d'abord les commandes les plus proches.
+// Estimation (la valeur définitive est recalculée par le serveur au moment d'envoyer le bon de commande) :
+// chutes, bruts et livraisons déjà commandées servent d'abord les fabrications les plus proches.
 function planCompute() {
   const now = thisWeek();
   const left = {};
   PROFILES.forEach(p => { left[p] = bruts[p] || 0; });
+  livraisons.forEach(d => { left[d.profile] = (left[d.profile] || 0) + d.qty; });
   // Chutes actuelles réparties sur les commandes, la plus proche d'abord.
   let pool = chutes.slice();
   return planRows.map(r => {
@@ -2097,23 +2110,24 @@ function planCompute() {
       bars.filter(b => b.source === 'barre').forEach(b => { withChutes[b.profile] = (withChutes[b.profile] || 0) + 1; });
     }
     PROFILES.forEach(p => {
-      const n = need[p] || 0;
+      const n = withChutes[p] || 0;
       if (!future || !n) return;
       const take = Math.min(left[p], n);
       left[p] -= take;
-      if (n - take > 0) buy[p] = n - take;
+      // Ligne déjà commandée : elle consomme le stock mais n'a plus rien à acheter.
+      if (n - take > 0 && !(r.sent && !isNaN(Date.parse(r.sent)))) buy[p] = n - take;
     });
-    const dw = addWeeks(r.week, -1);
-    return { r, need, withChutes, buy, future, delivery: dw < now ? now : dw };
+    return { r, need, withChutes, buy, future, delivery: r.week };
   });
 }
 
 // Rappel e-mail « à commander » envoyé RAPPEL semaines avant la fabrication (vérifié chaque jour par Google).
-const RAPPEL = 2;
+const RAPPEL = 1;
 function mailCell(x) {
   const sent = x.r.sent;
-  if (sent && !isNaN(Date.parse(sent))) return `<span class="pill ok">Envoyé ✓</span> <span class="muted">${new Date(sent).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>`;
-  if (!x.future || !Object.keys(x.buy).length) return '<span class="muted">—</span>';
+  if (sent && !isNaN(Date.parse(sent))) return `<span class="pill ok">Envoyé ✓</span> <span class="muted">${new Date(sent).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>`
+    + (x.r.buyText ? `<div class="withch" style="color:var(--muted)">${esc(x.r.buyText)}</div>` : '');
+  if (!x.future) return '<span class="muted">—</span>';
   const rw = addWeeks(x.r.week, -RAPPEL);
   return rw <= thisWeek() ? '<span class="pill warn">Envoi en cours</span>' : `<b>${wLabel(rw)}</b> <span class="muted">· automatique</span>`;
 }
@@ -2130,7 +2144,7 @@ function renderPlanning() {
   rows.forEach(x => PROFILES.forEach(p => { if (x.buy[p]) total[p] = (total[p] || 0) + x.buy[p]; }));
   const now = thisWeek();
   $('planTable').innerHTML = rows.length ? `<div class="tablewrap"><table class="ptable">
-    <thead><tr><th>Fabrication</th><th>Machine</th><th class="r">Qté</th><th>Bruts nécessaires<br><small>sans chutes · avec chutes actuelles</small></th><th>À acheter</th><th>Mail de commande</th><th>Livraison des bruts</th><th></th></tr></thead>
+    <thead><tr><th>Fabrication</th><th>Machine</th><th class="r">Qté</th><th>Bruts nécessaires<br><small>sans chutes · avec chutes actuelles</small></th><th>À acheter<br><small>estimation du jour</small></th><th>Bon de commande</th><th>Arrivée des bruts</th><th></th></tr></thead>
     <tbody>${rows.map((x, i) => `<tr class="${x.future ? '' : 'past'}">
       <td class="wk"><b>${wLabel(x.r.week)}</b><span>${fmtDay(weekMonday(x.r.week))}</span></td>
       <td><div class="mach"><img src="${machinePhoto(x.r.machine)}" alt="">${esc(x.r.machine)}</div></td>
@@ -2138,7 +2152,9 @@ function renderPlanning() {
       <td>${chipList(x.need)}${x.future ? `<div class="withch">avec chutes : ${PROFILES.filter(p => x.withChutes[p] > 0).map(p => short(p) + ' × ' + x.withChutes[p]).join(' · ') || 'aucun brut'}</div>` : ''}</td>
       <td>${x.future ? chipList(x.buy, 'buy') : '<span class="muted">—</span>'}</td>
       <td>${mailCell(x)}</td>
-      <td>${!x.future ? '<span class="muted">Fabriquée</span>' : Object.keys(x.buy).length ? (x.delivery <= now ? '<span class="pill ok">Reçue</span>' : `<b>${wLabel(x.delivery)}</b> <span class="muted">· auto</span>`) : '<span class="muted">Stock suffisant</span>'}</td>
+      <td>${!x.future ? '<span class="muted">Fabriquée</span>'
+        : (x.r.sent && !isNaN(Date.parse(x.r.sent))) ? (/^Rien/.test(x.r.buyText || '') ? '<span class="muted">Stock suffisant</span>' : `<b>${wLabel(x.delivery)}</b> <span class="muted">· auto</span>`)
+        : Object.keys(x.buy).length ? `<b>${wLabel(x.delivery)}</b> <span class="muted">· auto</span>` : '<span class="muted">Stock suffisant (estimation)</span>'}</td>
       <td class="r">${x.future ? `<button type="button" class="btn small ghost" data-del-plan="${i}">Supprimer</button>` : ''}</td>
     </tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="4">Total à acheter</td><td colspan="4">${chipList(total, 'buy')}</td></tr></tfoot>

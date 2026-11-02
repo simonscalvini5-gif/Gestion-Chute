@@ -17,8 +17,8 @@ const ALERTE_EMAIL = 'simon.scalvini@insidix.com';
 // Nom d'expéditeur affiché dans les e-mails (l'adresse reste celle du compte Google propriétaire du script).
 const EXPEDITEUR = 'Goulottes by TDM';
 const SEUIL_ALERTE = 3;
-// Rappel de commande : e-mail envoyé ce nombre de semaines avant la semaine de fabrication.
-const RAPPEL_SEMAINES = 2;
+// Bon de commande planifié : envoyé ce nombre de semaines avant la semaine de fabrication, calculé au moment de l'envoi.
+const RAPPEL_SEMAINES = 1;
 
 // Sections de goulotte ; brutes de 2000 mm (réglable dans Paramètres).
 const PROFILES = ['Goulotte 40x40', 'Goulotte 40x60', 'Goulotte 40x80', 'Goulotte 60x60', 'Goulotte 60x80'];
@@ -711,9 +711,6 @@ function savePlanning(p) {
     const o = old.find(x => x.week === f.week && x.machine === f.machine && x.qty === f.qty);
     f.sent = o ? o.sent : '';
   });
-  const deliveries = (p.deliveries || []).map(d => ({ week: String(d.week), profile: String(d.profile), qty: Math.round(Number(d.qty)) }))
-    .filter(d => d.qty > 0);
-  if (deliveries.some(d => !validWeek(d.week) || d.week < now || PROFILES.indexOf(d.profile) < 0 || d.qty > 5000)) return { error: 'Livraisons invalides.' };
 
   const fs = previsionsSheet();
   const rows = old.filter(f => f.week < now).concat(forecasts)
@@ -722,13 +719,7 @@ function savePlanning(p) {
   if (fs.getLastRow() > 1) fs.deleteRows(2, fs.getLastRow() - 1);
   if (rows.length) fs.getRange(2, 1, rows.length, 5).setValues(rows);
 
-  const ls = livraisonsSheet();
-  const kept = readDeliveries().filter(d => d.status !== 'Prévu' || d.week < now)
-    .map(d => [d.id, d.week, d.profile, d.qty, d.status, d.received ? new Date(d.received) : '']);
-  const fresh = deliveries.map(d => [Utilities.getUuid(), d.week, d.profile, d.qty, 'Prévu', '']);
-  const all = kept.concat(fresh).sort((a, b) => a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
-  if (ls.getLastRow() > 1) ls.deleteRows(2, ls.getLastRow() - 1);
-  if (all.length) ls.getRange(2, 1, all.length, 6).setValues(all);
+  // Les livraisons sont créées au moment où le bon de commande part (sendReminders).
   processDeliveries();
   sendReminders();
   installDailyTrigger();
@@ -756,24 +747,32 @@ function sendReminders() {
   if (!ALERTE_EMAIL) return;
   const now = isoWeek(new Date());
   const sh = previsionsSheet();
-  readForecasts().filter(f => !f.sent && f.week >= now && addWeeks(f.week, -RAPPEL_SEMAINES) <= now).forEach(f => {
-    if (!f.buy) { sh.getRange(f.row, 5).setValue('Rien à commander'); return; }
-    const monday = Utilities.formatDate(weekMonday(f.week), 'UTC', 'dd/MM/yyyy');
-    const subject = '[À commander] Bruts goulottes – ' + f.qty + ' × ' + f.machine + ' (fabrication ' + weekLabel(f.week) + ')';
-    const lines = f.buy.split(', ');
+  const due = readForecasts().filter(f => !f.sent && f.week >= now && addWeeks(f.week, -RAPPEL_SEMAINES) <= now);
+  if (!due.length) return;
+  const needs = planNeedsNow();  // recalculé maintenant : chutes et bruts du jour
+  due.forEach(f => {
+    const n = needs[f.row];
+    const lines = PROFILES.filter(p => n && n.buy[p] > 0).map(p => ({ profile: p, qty: n.buy[p] }));
+    const text = lines.map(l => l.profile.replace('Goulotte ', '') + ' × ' + l.qty).join(', ');
+    if (!lines.length) { sh.getRange(f.row, 4, 1, 2).setValues([['Rien à commander (stock suffisant)', new Date()]]); return; }
+    const arrival = weekMonday(f.week);
+    const monday = Utilities.formatDate(arrival, 'UTC', 'dd/MM/yyyy');
+    const subject = '[Bon de commande] Bruts goulottes – ' + f.qty + ' × ' + f.machine + ' (fabrication ' + weekLabel(f.week) + ')';
     const html = '<div style="font-family:Arial,sans-serif;color:#1f2a44">'
-      + '<p style="font-size:18px;color:#1f3f84"><b>TDM by INSIDI<span style="color:#f2b705">X</span></b> – rappel de commande</p>'
+      + '<p style="font-size:18px;color:#1f3f84"><b>TDM by INSIDI<span style="color:#f2b705">X</span></b> – commande planifiée</p>'
       + '<p>Fabrication prévue : <b>' + f.qty + ' × ' + esc(f.machine) + '</b> semaine <b>' + weekLabel(f.week) + '</b> (lundi ' + monday + ').</p>'
-      + '<p>Goulottes brutes à commander :</p><ul>' + lines.map(l => '<li><b>' + esc(l) + '</b></li>').join('') + '</ul>'
-      + '<p style="color:#7a8291">Calcul fait d\'après le stock au moment de la planification. Détail dans Espace méthode → Planning.</p></div>';
+      + '<p>Goulottes brutes à commander, calculées <b>aujourd\'hui</b> d\'après les chutes et les bruts en stock :</p><ul>'
+      + lines.map(l => '<li><b>' + esc(l.profile.replace('Goulotte ', '')) + ' × ' + l.qty + '</b></li>').join('') + '</ul></div>';
     try {
-      // Bon de commande joint : arrivée prévue le lundi de la semaine précédant la fabrication.
-      const bdc = makeBdc(parseBuy(f.buy), weekMonday(addWeeks(f.week, -1)), 'Planning – ' + f.qty + ' × ' + f.machine + ' ' + weekLabel(f.week), false);
-      MailApp.sendEmail({ to: ALERTE_EMAIL, name: EXPEDITEUR, subject: subject + ' – BC ' + bdc.num, body: 'À commander pour ' + f.qty + ' × ' + f.machine + ' (' + weekLabel(f.week) + ') : ' + f.buy,
+      const bdc = makeBdc(lines, arrival, 'Planning – ' + f.qty + ' × ' + f.machine + ' ' + weekLabel(f.week), false);
+      MailApp.sendEmail({ to: ALERTE_EMAIL, name: EXPEDITEUR, subject: subject + ' – BC ' + bdc.num, body: 'À commander pour ' + f.qty + ' × ' + f.machine + ' (' + weekLabel(f.week) + ') : ' + text,
         htmlBody: html + '<p style="font-family:Arial,sans-serif">Bon de commande <b>' + bdc.num + '</b> en pièce jointe.</p>', attachments: [bdc.blob] });
-      sh.getRange(f.row, 5).setValue(new Date());
+      // Livraison attendue la semaine de fabrication : entrée automatique en stock ce lundi-là.
+      lines.forEach(l => livraisonsSheet().appendRow([Utilities.getUuid(), f.week, l.profile, l.qty, 'Prévu', '']));
+      sh.getRange(f.row, 4, 1, 2).setValues([[text + ' – BC ' + bdc.num, new Date()]]);
+      bumpVersion();
     } catch (e) {
-      mouvementsSheet().appendRow([new Date(), '', 0, 'Rappel de commande non envoyé : ' + e.message]);
+      mouvementsSheet().appendRow([new Date(), '', 0, 'Bon de commande planifié non envoyé : ' + e.message]);
     }
   });
 }
