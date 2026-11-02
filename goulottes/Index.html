@@ -1416,8 +1416,6 @@ function renderMachines() {
   const current = plan && plan.machine;
   setHTML($('machines'), names.map(n => {
     const list = machines[n];
-    const pieces = list.reduce((s, r) => s + r.qty, 0);
-    const meters = list.reduce((s, r) => s + r.qty * r.length, 0) / 1000;
     const count = machineCount[n] || 1;
     const photo = machinePhoto(n);
     return `<article class="card machine${current === n ? ' current' : ''}" style="--k:${names.indexOf(n)}">
@@ -1429,10 +1427,6 @@ function renderMachines() {
       </div>
       <div class="body">
         <h3>${esc(n)}</h3>
-        <div class="meta">
-          <div><b class="num">${pieces}</b><span>pièces</span></div>
-          <div><b class="num">${meters.toFixed(1)} m</b><span>de goulotte</span></div>
-        </div>
         <div class="go">
           <div class="stepper" aria-label="Nombre de machines">
             <button type="button" data-step="-1" data-m="${esc(n)}" aria-label="Une machine de moins">−</button>
