@@ -3,7 +3,7 @@
 const SHEET_BDC = 'Bons de commande';
 const BDC_FOLDER = 'Bons de commande goulottes';
 const BDC_DEFAULTS = {
-  fournisseur: '',
+  fournisseur: 'SLCI – Solution Logique Câblage Industriel\nÀ l\'attention de Thierry ORLANDO\nt.orlando@slci.fr\nMobile : +33 6 37 74 27 99\nTél. : +33 4 76 21 25 67',
   contact: 'Morgan DEPONTIEU',
   contactEmail: 'morgan.depontieu@insidix.com',
   conditions: '30 jours fin de mois',
@@ -32,6 +32,7 @@ function writeKey(k, v) {
 function readBdcConfig() {
   let c = {};
   try { c = JSON.parse(String(readKey('bdcConfig') || '{}')); } catch (e) { c = {}; }
+  if (!String(c.fournisseur || '').trim()) delete c.fournisseur;
   return Object.assign({}, BDC_DEFAULTS, c, { refs: Object.assign({}, c.refs || {}), prix: Object.assign({}, c.prix || {}) });
 }
 
