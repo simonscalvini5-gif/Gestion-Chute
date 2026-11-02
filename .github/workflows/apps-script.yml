@@ -5,7 +5,7 @@ name: Serveur goulottes (Google Apps Script)
 on:
   push:
     branches: [claude/quirky-wright-cswq7t]
-    paths: ['goulottes/Code.gs', 'goulottes/Index.html', 'goulottes/appsscript.json', '.github/workflows/apps-script.yml']
+    paths: ['goulottes/*.gs', 'goulottes/Index.html', 'goulottes/appsscript.json', '.github/workflows/apps-script.yml']
   workflow_dispatch:
 
 jobs:

@@ -53,6 +53,15 @@ Le menu principal ne contient que **Recherche**, **Découpe** et **Espace métho
 L'Espace méthode (identifiant `Morgan` + mot de passe `ACHAT_MOT_DE_PASSE`) regroupe :
 **Commande immédiate**, **Planning**, **Stock** (chutes et bruts), **Historique** et **Paramètres**.
 
+## Bons de commande
+Modèle INSIDIX (bandeau, fournisseur, adresses, tableau, totaux HT/TVA/TTC, conditions, pied de page légal) — voir
+`exemple-bon-de-commande.pdf`. Numérotation automatique G00001, G00002…
+- Créé et envoyé en pièce jointe à `ALERTE_EMAIL` : à chaque **achat validé** (Commande immédiate) et avec chaque
+  **e-mail « à commander »** du Planning (arrivée prévue = lundi de la semaine avant la fabrication).
+- Réglages dans **Espace méthode → Paramètres → Bons de commande** : fournisseur, contact, conditions, TVA,
+  référence article et prix unitaire HT par section. Bouton « Envoyer un e-mail de test ».
+- PDF rangés dans Google Drive (dossier « Bons de commande goulottes »), liste dans l'onglet **Bons de commande** du tableau.
+
 ## Erreur de coupe
 Sur l'écran **Recherche**, l'encadré « Erreur de coupe ? » permet de déclarer une pièce ratée (section + longueur réellement coupée) :
 plus courte que la chute minimale gardée (Paramètres, 100 mm par défaut) → **rebut** ; sinon elle entre dans le **stock de chutes**

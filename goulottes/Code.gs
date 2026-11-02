@@ -104,7 +104,9 @@ function api(action, payload, login) {
     else if (action === 'pdf') result = makePdf(payload);
     else if (action === 'addBrut') result = addBruts(payload);
     else if (action === 'removeBrut') result = removeBruts(payload);
-    else if (action === 'achatLogin') result = achatCheck(payload) || { achats: readAchats(), planning: readPlanning() };
+    else if (action === 'achatLogin') result = achatCheck(payload) || { achats: readAchats(), planning: readPlanning(), bdcConfig: readBdcConfig() };
+    else if (action === 'bdcConfig') result = achatCheck(payload) || saveBdcConfig(payload);
+    else if (action === 'bdcTest') result = achatCheck(payload) || bdcTest(payload);
     else if (action === 'planSave') result = achatCheck(payload) || savePlanning(payload);
     else if (action === 'deliveryReceived') result = achatCheck(payload) || receiveDelivery(payload);
     else if (action === 'achatValidate') result = achatCheck(payload) || validateAchat(payload);
@@ -252,7 +254,17 @@ function validateAchat(p) {
     achatsSheet().appendRow([now, ACHAT_IDENTIFIANT, ref, l.profile, l.qty]);
   });
   changeBruts(deltas, 'Achat' + (ref ? ' – ' + ref : ''));
-  return { achats: readAchats() };
+  // Bon de commande (arrivée prévue dans une semaine) envoyé par e-mail.
+  const merged = PROFILES.filter(pr => deltas[pr] > 0).map(pr => ({ profile: pr, qty: deltas[pr] }));
+  let bdc = null;
+  try {
+    bdc = makeBdc(merged, new Date(Date.now() + 7 * 86400000), 'Commande immédiate' + (ref ? ' – ' + ref : ''), false);
+    mailBdc(bdc, '[Bon de commande ' + bdc.num + '] Goulottes brutes' + (ref ? ' – ' + ref : ''),
+      '<p>Commande validée par ' + esc(ACHAT_IDENTIFIANT) + ' : ' + merged.map(l => esc(l.profile.replace('Goulotte ', '')) + ' × ' + l.qty).join(', ') + '.</p>');
+  } catch (e) {
+    mouvementsSheet().appendRow([new Date(), '', 0, 'Bon de commande non envoyé : ' + e.message]);
+  }
+  return { achats: readAchats(), bdc: bdc ? { num: bdc.num, url: bdc.url } : null };
 }
 
 function machinesSheet() {
@@ -731,7 +743,10 @@ function sendReminders() {
       + '<p>Goulottes brutes à commander :</p><ul>' + lines.map(l => '<li><b>' + esc(l) + '</b></li>').join('') + '</ul>'
       + '<p style="color:#7a8291">Calcul fait d\'après le stock au moment de la planification. Détail dans Espace méthode → Planning.</p></div>';
     try {
-      MailApp.sendEmail({ to: ALERTE_EMAIL, subject: subject, body: 'À commander pour ' + f.qty + ' × ' + f.machine + ' (' + weekLabel(f.week) + ') : ' + f.buy, htmlBody: html });
+      // Bon de commande joint : arrivée prévue le lundi de la semaine précédant la fabrication.
+      const bdc = makeBdc(parseBuy(f.buy), weekMonday(addWeeks(f.week, -1)), 'Planning – ' + f.qty + ' × ' + f.machine + ' ' + weekLabel(f.week), false);
+      MailApp.sendEmail({ to: ALERTE_EMAIL, subject: subject + ' – BC ' + bdc.num, body: 'À commander pour ' + f.qty + ' × ' + f.machine + ' (' + weekLabel(f.week) + ') : ' + f.buy,
+        htmlBody: html + '<p style="font-family:Arial,sans-serif">Bon de commande <b>' + bdc.num + '</b> en pièce jointe.</p>', attachments: [bdc.blob] });
       sh.getRange(f.row, 5).setValue(new Date());
     } catch (e) {
       mouvementsSheet().appendRow([new Date(), '', 0, 'Rappel de commande non envoyé : ' + e.message]);

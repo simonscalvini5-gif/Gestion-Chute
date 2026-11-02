@@ -347,6 +347,14 @@
   #brutForm { grid-template-columns: 1fr 1fr auto; }
   .brutbtns { display: flex; gap: 8px; }
   .brutmotif { grid-column: 1 / -1; }
+  .bdcgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .bdcgrid .wide { grid-column: 1 / -1; }
+  .bdcform textarea { width: 100%; font: 500 1rem var(--font); padding: 10px 12px; border: 1px solid #cfd7e6; border-radius: 12px; color: var(--ink); resize: vertical; }
+  .bdcprices input { font-size: .95rem; padding: 8px 10px; }
+  .bdcprices .sec { display: flex; align-items: center; gap: 10px; }
+  .bdcprices .sec .duct-photo, .bdcprices .sec svg { width: 54px; height: 40px; object-fit: contain; }
+  .bdcprices td:last-child input { text-align: right; max-width: 160px; margin-left: auto; display: block; }
+  @media (max-width: 600px) { .bdcgrid { grid-template-columns: 1fr; } }
   .addtitle { margin: 22px 0 10px; font: 700 1.05rem var(--font-head); color: var(--ink); }
   .stockalert { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; margin-bottom: 16px;
     background: var(--ko-bg); color: var(--ko); border: 1px solid #f2c4bf; }
@@ -673,6 +681,27 @@
           </div>
           <button class="btn" type="submit">Enregistrer</button>
           <p class="muted" style="margin-bottom:0">Un reste plus court que la « chute mini » est compté comme déchet et n'entre pas en stock. Ces réglages s'appliquent à tous les postes.</p>
+        </form>
+      </section>
+      <section data-at="param" hidden>
+        <div class="sectiontitle"><h2>Bons de commande</h2><p class="muted">Joints aux e-mails « à commander » et à chaque achat validé</p></div>
+        <form id="bdcForm" class="card bdcform">
+          <div class="bdcgrid">
+            <div class="wide"><label for="bdcFourn">Fournisseur (nom et adresse)</label><textarea id="bdcFourn" rows="3"></textarea></div>
+            <div><label for="bdcContact">Contact INSIDIX</label><input id="bdcContact" type="text"></div>
+            <div><label for="bdcEmail">E-mail du contact</label><input id="bdcEmail" type="email"></div>
+            <div><label for="bdcCond">Conditions de paiement</label><input id="bdcCond" type="text"></div>
+            <div><label for="bdcTva">TVA (%)</label><input id="bdcTva" type="number" min="0" max="100" step="0.1"></div>
+          </div>
+          <div class="tablewrap" style="margin-top:16px"><table class="bdcprices">
+            <thead><tr><th>Section</th><th>Référence article</th><th class="r">Prix unitaire HT (€)</th></tr></thead>
+            <tbody id="bdcRows"></tbody>
+          </table></div>
+          <div class="actions">
+            <button class="btn" type="submit">Enregistrer</button>
+            <button class="btn ghost" type="button" id="bdcTest">Envoyer un e-mail de test</button>
+          </div>
+          <p class="muted" id="bdcTestOut" style="margin-bottom:0"></p>
         </form>
       </section>
     </div>
@@ -1304,6 +1333,7 @@ function applyView(name) {
     if (achat) achatServer('achatLogin').then(r => {
       renderAchatHist(r.achats);
       if (r.planning) loadPlanning(r.planning);
+      loadBdc(r.bdcConfig);
       showAchatTab(achatTab);
     }).catch(() => { achat = null; showAchat(); });
   }
@@ -1905,11 +1935,32 @@ async function achatValidate(btn) {
     $('achatOut').hidden = true;
     Object.keys(orderCount).forEach(k => { orderCount[k] = 0; });
     renderOrders();
-    toast(`Achat validé : ${lines.map(l => '+' + l.qty + ' ' + short(l.profile)).join(', ')} ajoutés aux bruts.`);
+    toast(`Achat validé : ${lines.map(l => '+' + l.qty + ' ' + short(l.profile)).join(', ')} ajoutés aux bruts.` + (r.bdc ? ` Bon de commande ${r.bdc.num} envoyé par e-mail.` : ''));
+    if (r.bdc) {
+      const out = $('achatOut');
+      out.innerHTML = `<div class="card"><p style="margin:0"><b>Bon de commande ${esc(r.bdc.num)}</b> créé et envoyé par e-mail. <a class="btn small ghost" href="${esc(r.bdc.url)}" target="_blank" rel="noopener">Ouvrir le PDF</a></p></div>`;
+      out.hidden = false;
+    }
   } catch (e) {
     toast(e.message);
     btn.disabled = false;
   }
+}
+
+/* ---------- Bons de commande ---------- */
+
+function loadBdc(c) {
+  if (!c) return;
+  $('bdcFourn').value = c.fournisseur || '';
+  $('bdcContact').value = c.contact || '';
+  $('bdcEmail').value = c.contactEmail || '';
+  $('bdcCond').value = c.conditions || '';
+  $('bdcTva').value = c.tva;
+  $('bdcRows').innerHTML = PROFILES.map(p => `<tr>
+    <td><div class="sec">${ductSVG(p)}<strong>${short(p)}</strong></div></td>
+    <td><input class="bref" data-p="${p}" type="text" value="${esc((c.refs || {})[p] || '')}" placeholder="ex. TDM-000123" aria-label="Référence ${short(p)}"></td>
+    <td><input class="bprix" data-p="${p}" type="number" min="0" step="0.01" value="${(c.prix || {})[p] || ''}" placeholder="0,00" aria-label="Prix ${short(p)}"></td>
+  </tr>`).join('');
 }
 
 /* ---------- Planning (tableau simple) ---------- */
@@ -2161,6 +2212,29 @@ $('orders').addEventListener('click', e => {
   renderOrders();
 });
 $('achatCompute').addEventListener('click', achatCompute);
+$('bdcForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const config = {
+    fournisseur: $('bdcFourn').value, contact: $('bdcContact').value, contactEmail: $('bdcEmail').value,
+    conditions: $('bdcCond').value, tva: $('bdcTva').value, refs: {}, prix: {}
+  };
+  document.querySelectorAll('#bdcRows .bref').forEach(i => { config.refs[i.dataset.p] = i.value; });
+  document.querySelectorAll('#bdcRows .bprix').forEach(i => { config.prix[i.dataset.p] = i.value; });
+  try { const r = await achatServer('bdcConfig', { config }); loadBdc(r.bdcConfig); toast('Réglages des bons de commande enregistrés.'); }
+  catch (err) { toast(err.message); }
+});
+$('bdcTest').addEventListener('click', async e => {
+  const b = e.currentTarget;
+  b.disabled = true;
+  $('bdcTestOut').textContent = '';
+  try {
+    const r = await achatServer('bdcTest');
+    $('bdcTestOut').innerHTML = `E-mail de test envoyé à <b>${esc(r.to)}</b>. <a href="${esc(r.url)}" target="_blank" rel="noopener">Voir le bon de commande de test</a>`;
+  } catch (err) {
+    $('bdcTestOut').textContent = 'Échec : ' + err.message + ' — dans Apps Script, exécutez une fois la fonction rappelsQuotidiens pour autoriser l\'envoi d\'e-mails.';
+  }
+  b.disabled = false;
+});
 $('achatTabs').addEventListener('click', e => { const b = e.target.closest('button[data-at]'); if (b) showAchatTab(b.dataset.at); });
 $('planForm').addEventListener('submit', async e => {
   e.preventDefault();
@@ -2206,6 +2280,7 @@ $('achatLoginForm').addEventListener('submit', async e => {
     $('achatPass').value = '';
     renderAchatHist(r.achats);
     if (r.planning) loadPlanning(r.planning);
+    loadBdc(r.bdcConfig);
     showAchat();
     showAchatTab(achatTab);
   } catch (err) { $('achatErr').textContent = err.message; }
